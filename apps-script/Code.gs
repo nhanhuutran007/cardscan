@@ -12,6 +12,13 @@
  *   3. Triển khai → Tùy chọn triển khai mới → Ứng dụng web
  *        Thực thi dưới dạng: Tôi · Người có quyền truy cập: Bất kỳ ai
  *   4. Dán URL ứng dụng web (.../exec) và TOKEN vào CardScan › Tích hợp AppSheet.
+ *
+ * Nhận dạng bằng AI (tùy chọn):
+ *   Lấy khóa API miễn phí tại https://aistudio.google.com/apikey
+ *   Cài đặt dự án (biểu tượng bánh răng) → Thuộc tính tập lệnh → Thêm:
+ *        GEMINI_API_KEY = <khóa API>
+ *        GEMINI_MODEL   = gemini-flash-latest   (không bắt buộc)
+ *   Sau đó Triển khai → Quản lý các bản triển khai → Chỉnh sửa → Phiên bản mới.
  */
 
 const TOKEN = 'doi-ma-bao-mat-nay';   // phải trùng với "Mã bảo mật" nhập trong CardScan
@@ -38,11 +45,15 @@ function doGet(e) {
     ok: true,
     spreadsheet: spreadsheet_().getName(),
     sheet: SHEET_NAME,
-    rows: Math.max(0, sheet.getLastRow() - 1)
+    rows: Math.max(0, sheet.getLastRow() - 1),
+    ai: !!prop_('GEMINI_API_KEY')
   });
 }
 
-/** Đồng bộ: POST { token, records: [{ ID, HoTen, ... }] } */
+/**
+ * POST { token, records: [...] }                       → đồng bộ hồ sơ
+ * POST { token, action: 'ocr', image: <base64>, mime } → nhận dạng danh thiếp bằng Gemini
+ */
 function doPost(e) {
   let body;
   try {
@@ -51,6 +62,7 @@ function doPost(e) {
     return json_({ ok: false, error: 'Dữ liệu gửi lên không hợp lệ' });
   }
   if (body.token !== TOKEN) return json_({ ok: false, error: 'Sai mã bảo mật' });
+  if (body.action === 'ocr') return json_(recognizeCard_(body));
   const records = Array.isArray(body.records) ? body.records : [];
 
   const lock = LockService.getScriptLock();
@@ -120,6 +132,88 @@ function getSheet_() {
     });
   }
   return sheet;
+}
+
+/* ===================== Nhận dạng danh thiếp bằng Gemini ===================== */
+
+const GEMINI_DEFAULT_MODEL = 'gemini-flash-latest';   // bí danh luôn trỏ tới bản Flash mới nhất
+
+const CARD_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    name:    { type: 'STRING' },
+    title:   { type: 'STRING' },
+    company: { type: 'STRING' },
+    phones:  { type: 'ARRAY', items: { type: 'STRING' } },
+    email:   { type: 'STRING' },
+    website: { type: 'STRING' },
+    address: { type: 'STRING' },
+    text:    { type: 'STRING' }
+  },
+  required: ['name', 'title', 'company', 'phones', 'email', 'website', 'address', 'text']
+};
+
+const CARD_PROMPT = [
+  'Bạn là công cụ trích xuất thông tin từ ảnh danh thiếp. Trả về JSON theo schema.',
+  'Quy tắc:',
+  '- name: họ tên đầy đủ của NGƯỜI trên thẻ, giữ nguyên dấu tiếng Việt như in. Nếu thẻ không có tên người (thẻ cửa hàng, thẻ công ty) thì để chuỗi rỗng, không dùng tên thương hiệu.',
+  '- title: chức danh của người đó.',
+  '- company: tên công ty / cửa hàng / thương hiệu đầy đủ như in trên thẻ.',
+  '- phones: tất cả số điện thoại theo thứ tự xuất hiện, giữ nguyên cách viết trên thẻ (kể cả mã quốc gia). Không lấy số fax.',
+  '- email, website: viết thường; website không thêm http://.',
+  '- address: địa chỉ đầy đủ, gộp thành một dòng.',
+  '- text: toàn bộ chữ đọc được trên thẻ, mỗi dòng của thẻ là một dòng.',
+  '- Chỉ ghi thông tin có trên thẻ, không suy đoán. Trường không có thì để chuỗi rỗng hoặc mảng rỗng.',
+  '- Nếu ảnh có nhiều thẻ, chỉ đọc thẻ rõ nhất ở giữa ảnh.'
+].join('\n');
+
+function recognizeCard_(body) {
+  const key = prop_('GEMINI_API_KEY');
+  if (!key) return { ok: false, error: 'Chưa cấu hình GEMINI_API_KEY trong Apps Script' };
+  if (!body.image) return { ok: false, error: 'Thiếu ảnh danh thiếp' };
+  const model = prop_('GEMINI_MODEL') || GEMINI_DEFAULT_MODEL;
+
+  const request = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType: body.mime || 'image/jpeg', data: body.image } },
+        { text: CARD_PROMPT }
+      ]
+    }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: CARD_SCHEMA }
+  };
+  const res = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent',
+    {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-goog-api-key': key },
+      payload: JSON.stringify(request),
+      muteHttpExceptions: true
+    });
+
+  const code = res.getResponseCode();
+  let data = {};
+  try { data = JSON.parse(res.getContentText()); } catch (err) {}
+  if (code !== 200) {
+    return { ok: false, error: 'Gemini: ' + ((data.error && data.error.message) || ('HTTP ' + code)) };
+  }
+  const cand = data.candidates && data.candidates[0];
+  const parts = (cand && cand.content && cand.content.parts) || [];
+  const text = parts.map(p => p.text || '').join('');
+  if (!text) {
+    return { ok: false, error: 'Gemini không trả về kết quả' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : '') };
+  }
+  let fields;
+  try { fields = JSON.parse(text); } catch (err) {
+    return { ok: false, error: 'Kết quả AI không đúng định dạng' };
+  }
+  return { ok: true, model: data.modelVersion || model, fields: fields };
+}
+
+function prop_(name) {
+  return PropertiesService.getScriptProperties().getProperty(name);
 }
 
 function json_(obj) {

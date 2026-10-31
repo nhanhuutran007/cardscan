@@ -14,7 +14,12 @@ Công cụ số hóa danh thiếp chạy trên trình duyệt: nhận dạng ký
 - Tiền xử lý ảnh: chuyển xám, tăng tương phản, nhị phân hóa Otsu
 - Tự thử nhiều chế độ phân tích bố cục (PSM) và giữ kết quả tốt nhất
 
-**Trích xuất thông tin**
+**Nhận dạng bằng AI (tùy chọn)**
+- Dùng Google Gemini (qua Apps Script) để đọc ảnh và trích xuất trường thông tin — chính xác hơn với bố cục phức tạp, chữ nghệ thuật, chữ trên nền màu, thẻ cửa hàng không có tên người
+- Khóa API lưu trong Apps Script, không nằm trong mã nguồn
+- Tự động chuyển về OCR trên máy (Tesseract) khi AI lỗi, hết hạn mức hoặc chưa cấu hình
+
+**Trích xuất thông tin (OCR trên máy)**
 - Tự điền họ tên, chức danh, công ty, số điện thoại, email, website, địa chỉ
 - Hỗ trợ số điện thoại Việt Nam và quốc tế; thẻ có nhiều số điện thoại
 - Chịu được các lỗi OCR thường gặp: mất dấu tiếng Việt, ký tự `@` bị đọc sai, ký tự rác từ biểu tượng trên thẻ
@@ -37,6 +42,7 @@ Công cụ số hóa danh thiếp chạy trên trình duyệt: nhận dạng ký
 |---|---|
 | Giao diện | HTML, CSS, JavaScript thuần — không framework, một tệp duy nhất |
 | OCR | [Tesseract.js](https://github.com/naptha/tesseract.js) 5 (`vie` + `eng`) |
+| Nhận dạng AI | [Gemini API](https://ai.google.dev/gemini-api/docs) — đầu ra JSON theo schema |
 | Xử lý ảnh | Canvas API — biến đổi phối cảnh (homography), nội suy song tuyến, ngưỡng Otsu |
 | Đồng bộ | Google Apps Script (ứng dụng web) → Google Sheets → AppSheet |
 | Xử lý dữ liệu hàng loạt | Python 3 (chỉ thư viện chuẩn) |
@@ -115,7 +121,18 @@ CardScan ──POST JSON──▶ Apps Script (ứng dụng web) ──▶ Googl
 - Trang tính `KhachHang` được tạo tự động; cột số điện thoại để dạng văn bản nên giữ nguyên số 0 đầu.
 - Xóa hồ sơ trong CardScan không xóa dòng tương ứng trên Google Sheets.
 
-### 3. Cài đặt cho nhân viên
+### 3. Bật nhận dạng bằng AI (Gemini)
+
+1. Lấy khóa API tại [Google AI Studio](https://aistudio.google.com/apikey).
+2. Trong Apps Script: **Cài đặt dự án** (biểu tượng bánh răng) › **Thuộc tính tập lệnh** › **Thêm thuộc tính tập lệnh**:
+   - `GEMINI_API_KEY` = khóa API
+   - `GEMINI_MODEL` = tên model *(không bắt buộc — mặc định `gemini-flash-latest`)*
+3. **Triển khai › Quản lý các bản triển khai › Chỉnh sửa › Phiên bản mới** và cấp thêm quyền *kết nối với dịch vụ bên ngoài* khi được hỏi.
+4. Trong CardScan bấm **Kiểm tra kết nối** — trạng thái hiển thị `· AI` và góc trên hiện **AI Gemini**.
+
+> **Quyền riêng tư:** ở gói miễn phí, Google có thể dùng dữ liệu gửi tới Gemini API để cải thiện sản phẩm. Với dữ liệu khách hàng thật, nên dùng gói trả phí hoặc xác nhận chính sách với đơn vị trước khi bật. Có thể tắt AI bất kỳ lúc nào bằng công tắc *Nhận dạng bằng AI* trong CardScan.
+
+### 4. Cài đặt cho nhân viên
 
 Người quản trị cấu hình một lần, sau đó phát link cho mọi người — nhân viên không cần nhập URL hay mã bảo mật.
 
@@ -128,7 +145,7 @@ Cấu hình nằm sau dấu `#` của link nên không được gửi lên máy 
 
 **Đổi mã bảo mật** (ví dụ khi có người nghỉ việc): tạo mã mới → cập nhật `TOKEN` trong Apps Script và triển khai phiên bản mới → bấm **Lưu** trong CardScan → gửi link cài đặt mới. Link cũ sẽ không còn ghi được dữ liệu.
 
-### 4. Tạo ứng dụng AppSheet
+### 5. Tạo ứng dụng AppSheet
 
 1. Sau lần đồng bộ đầu tiên, trong Google Sheets chọn **Tiện ích mở rộng › AppSheet › Tạo ứng dụng**.
 2. Cấu hình cột (**Data › KhachHang**):
@@ -164,5 +181,5 @@ Cấu hình nằm sau dấu `#` của link nên không được gửi lên máy 
 
 - Tự động phát hiện 4 góc danh thiếp (OpenCV.js)
 - Đồng bộ hai chiều: cập nhật trạng thái KYC từ AppSheet ngược về CardScan
-- Tích hợp Google Cloud Vision / Document AI để tăng độ chính xác
+- Gợi ý sửa lỗi dựa trên dữ liệu đã có trong Google Sheets (công ty, tên miền email)
 - Đối chiếu mã số thuế doanh nghiệp với cổng thông tin quốc gia

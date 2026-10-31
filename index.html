@@ -650,6 +650,7 @@
                   <div class="inline"><input id="cfgToken" class="mono" autocomplete="off" spellcheck="false" autocapitalize="off"><button class="btn" id="genTokenBtn" type="button">Tạo mã</button></div>
                 </div>
                 <label class="switch sw-wide"><input type="checkbox" id="cfgAuto">Tự động đồng bộ khi lưu hồ sơ</label>
+                <label class="switch sw-wide"><input type="checkbox" id="cfgAi" checked>Nhận dạng bằng AI (Gemini) khi khả dụng</label>
               </div>
               <div class="panel-f">
                 <button class="btn" id="shareCfgBtn"><svg class="i"><use href="#i-qr"/></svg>Link cài đặt</button>
@@ -1091,14 +1092,63 @@ async function getWorker(){
 }
 
 $('ocrBtn').onclick = () => runOcr();
+// Ưu tiên AI (Gemini qua Apps Script); lỗi hoặc chưa cấu hình → OCR trên máy (Tesseract)
 async function runOcr(opts = {}){
+  $('ocrBtn').disabled = true;
+  const t0 = performance.now();
+  try{
+    if(useAi()){
+      try{ return await ocrWithAi(t0, opts); }
+      catch(e){ console.warn(e); toast('AI lỗi: ' + netMsg(e) + ' — chuyển sang OCR trên máy'); }
+    }
+    await ocrLocal(t0, opts);
+  }catch(err){
+    console.error(err);
+    setStatus('Lỗi OCR: ' + (err.message || err), undefined, 'err');
+  }finally{ $('ocrBtn').disabled = false; }
+}
+function afterRecognize(found, msg, opts){
+  if(found < 2) return setStatus('Không đọc được thông tin — hãy dùng “Làm thẳng thẻ” rồi chạy lại.', 1, 'warn');
+  setStatus(msg, 1, 'ok'); setStep(4);
+  // Chụp bằng camera trên điện thoại → cuộn thẳng tới phần thông tin để kiểm tra
+  if(opts.fromCamera && matchMedia('(max-width:700px)').matches)
+    $('f_name').closest('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Ảnh gửi AI: ảnh màu đang hiển thị (đã cắt / làm thẳng), thu về tối đa 1600px, JPEG ~85%
+function imageForAi(){
+  const src = currentImage, s = Math.min(1, 1600 / Math.max(imgW(src), imgH(src)));
+  const c = document.createElement('canvas'); c.width = Math.round(imgW(src) * s); c.height = Math.round(imgH(src) * s);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+async function ocrWithAi(t0, opts){
+  setStatus('Đang nhận dạng bằng AI...', 0.35, 'busy');
+  const r = await sheetPost({ token: syncCfg.token, action: 'ocr', mime: 'image/jpeg', image: imageForAi() });
+  const f = r.fields || {};
+  const str = v => (typeof v === 'string' ? v : '').trim();
+  const phones = (Array.isArray(f.phones) ? f.phones : []).map(str).filter(Boolean).map(formatPhone);
+  let name = str(f.name);
+  if(name && name === name.toUpperCase()) name = titleCase(name);          // "NGUYỄN VĂN AN" → "Nguyễn Văn An"
+  const p = {
+    name, title: str(f.title), company: str(f.company),
+    phone: phones[0] || '', email: str(f.email).toLowerCase(),
+    website: str(f.website).toLowerCase().replace(/^https?:\/\//, ''), address: str(f.address),
+    note: phones.length > 1 ? 'SĐT khác: ' + phones.slice(1).join(', ') : ''
+  };
+  $('raw').value = str(f.text);
+  applyParsed(p);
+  const found = countFields(p), secs = ((performance.now() - t0) / 1000).toFixed(1);
+  $('rawMeta').textContent = 'AI · ' + (r.model || 'Gemini');
+  afterRecognize(found, `Hoàn tất ${secs}s · ${found}/7 trường · AI Gemini`, opts);
+}
+
+async function ocrLocal(t0, opts){
   if(typeof Tesseract === 'undefined'){
     setEngine('error', 'OCR mất mạng');
     return setStatus('Không tải được OCR — cần kết nối Internet.', undefined, 'err');
   }
-  $('ocrBtn').disabled = true;
-  const t0 = performance.now();
-  try{
+  {
     const w = await getWorker();
     // Page Segmentation Mode (PSM): cách Tesseract chia bố cục trang.
     // "Tự động" chạy thử PSM 4 (một cột) và PSM 11 (chữ rải rác), giữ kết quả bóc tách được nhiều trường nhất.
@@ -1117,17 +1167,8 @@ async function runOcr(opts = {}){
     const found = countFields(best.parsed);
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     $('rawMeta').textContent = `${best.data.text.trim().split('\n').filter(Boolean).length} dòng · tin cậy ${Math.round(best.data.confidence)}% · PSM ${best.m}`;
-    if(found < 2) setStatus('Không đọc được thông tin — hãy dùng “Làm thẳng thẻ” rồi chạy lại.', 1, 'warn');
-    else {
-      setStatus(`Hoàn tất ${secs}s · ${found}/7 trường · tin cậy ${Math.round(best.data.confidence)}%`, 1, 'ok'); setStep(4);
-      // Chụp bằng camera trên điện thoại → cuộn thẳng tới phần thông tin để kiểm tra
-      if(opts.fromCamera && matchMedia('(max-width:700px)').matches)
-        $('f_name').closest('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }catch(err){
-    console.error(err);
-    setStatus('Lỗi OCR: ' + (err.message || err), undefined, 'err');
-  }finally{ $('ocrBtn').disabled = false; }
+    afterRecognize(found, `Hoàn tất ${secs}s · ${found}/7 trường · tin cậy ${Math.round(best.data.confidence)}%`, opts);
+  }
 }
 const countFields = p => ['name','title','company','phone','email','website','address'].filter(k => p[k]).length;
 $('reparseBtn').onclick = () => { applyParsed(parseCard($('raw').value)); toast('Đã trích xuất lại từ văn bản'); };
@@ -1440,14 +1481,23 @@ const CONN = { none:['b-none','Chưa kết nối'], busy:['b-busy','Đang kiểm
 function setConn(state, text){ const ch = $('connChip'); ch.className = 'chip ml-auto ' + CONN[state][0]; ch.textContent = text || CONN[state][1]; }
 function fillCfg(){
   $('cfgUrl').value = syncCfg.url || ''; $('cfgToken').value = syncCfg.token || ''; $('cfgAuto').checked = !!syncCfg.auto;
+  $('cfgAi').checked = syncCfg.useAi !== false;
   setConn(syncCfg.url && syncCfg.token ? (syncCfg.lastOk ? 'ok' : 'none') : 'none');
+  refreshEngine();
 }
+// AI chỉ dùng khi: đã kết nối Apps Script, Apps Script có GEMINI_API_KEY, và người dùng không tắt
+const useAi = () => !!(syncCfg.url && syncCfg.token && syncCfg.ai && syncCfg.useAi !== false);
+function refreshEngine(){
+  if(useAi()) setEngine('ready', 'AI Gemini');
+  else setEngine(worker ? 'ready' : 'idle', worker ? 'OCR sẵn sàng' : 'OCR');
+}
+const connText = r => `Đã kết nối · ${r.rows} dòng${r.ai ? ' · AI' : ''}`;
 function saveCfg(){
   const url = $('cfgUrl').value.trim(), token = $('cfgToken').value.trim();
   if(url && !/^https?:\/\/\S+$/.test(url)){ toast('URL không hợp lệ'); return false; }
   if(url !== syncCfg.url || token !== syncCfg.token) syncCfg.lastOk = false;
-  Object.assign(syncCfg, { url, token, auto: $('cfgAuto').checked });
-  persistCfg(); renderTable(); if(!syncCfg.lastOk) setConn('none');
+  Object.assign(syncCfg, { url, token, auto: $('cfgAuto').checked, useAi: $('cfgAi').checked });
+  persistCfg(); renderTable(); refreshEngine(); if(!syncCfg.lastOk) setConn('none');
   return true;
 }
 // Lỗi mạng/CORS thường do URL sai hoặc chưa đặt quyền truy cập "Bất kỳ ai"
@@ -1460,7 +1510,9 @@ async function parseRes(res){
 }
 async function sheetGet(){
   const u = new URL(syncCfg.url); u.searchParams.set('token', syncCfg.token);
-  return parseRes(await fetch(u, { cache: 'no-store' }));
+  const r = await parseRes(await fetch(u, { cache: 'no-store' }));
+  syncCfg.ai = !!r.ai; persistCfg(); refreshEngine();      // Apps Script cho biết đã cấu hình Gemini chưa
+  return r;
 }
 // Không đặt header Content-Type → "simple request", trình duyệt không gửi preflight (Apps Script không hỗ trợ OPTIONS)
 async function sheetPost(payload){
@@ -1490,7 +1542,7 @@ async function syncNow(opts = {}){
 }
 $('syncBtn').onclick = () => syncNow();
 $('saveCfgBtn').onclick = () => { if(saveCfg()) toast('Đã lưu cấu hình'); };
-$('cfgAuto').onchange = () => saveCfg();
+$('cfgAuto').onchange = $('cfgAi').onchange = () => saveCfg();
 $('testBtn').onclick = async () => {
   if(!saveCfg()) return;
   if(!syncCfg.url || !syncCfg.token) return toast('Nhập URL và mã bảo mật trước');
@@ -1498,7 +1550,7 @@ $('testBtn').onclick = async () => {
   try{
     const r = await sheetGet();
     syncCfg.lastOk = true; persistCfg();
-    setConn('ok', `Đã kết nối · ${r.rows} dòng`);
+    setConn('ok', connText(r));
     toast(`Kết nối thành công tới “${r.spreadsheet}”`);
   }catch(e){
     syncCfg.lastOk = false; persistCfg(); setConn('fail');
@@ -1553,7 +1605,7 @@ function applySetupFromHash(){
   persistCfg(); fillCfg(); renderTable();
   toast('Đã cài đặt đồng bộ Google Sheets');
   sheetGet()
-    .then(r => { syncCfg.lastOk = true; persistCfg(); setConn('ok', `Đã kết nối · ${r.rows} dòng`); })
+    .then(r => { syncCfg.lastOk = true; persistCfg(); setConn('ok', connText(r)); })
     .catch(e => { setConn('fail'); toast('Đã cài đặt nhưng chưa kết nối được: ' + netMsg(e)); });
 }
 window.addEventListener('hashchange', applySetupFromHash);
