@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#13151A">
+<link rel="icon" href="data:,">
 <title>CardScan KYC Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -231,6 +232,11 @@
 
   /* ---------- Integration ---------- */
   .int{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start}
+  .int-col{display:grid;gap:18px;align-content:start;min-width:0}
+  .inline{display:flex;gap:8px} .inline input{flex:1;min-width:0}
+  .sw-wide{grid-column:1/-1;padding:2px 0}
+  .pend{display:block;font-size:11.5px;color:var(--warn);margin-top:2px;font-weight:500}
+  .chip.b-busy{color:var(--accent);background:var(--accent-soft);border-color:#C3DFD7}
   ol.flow{list-style:none;margin:0;padding:6px 16px 14px;counter-reset:f}
   ol.flow li{counter-increment:f;display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
   ol.flow li:first-child{border-top:0}
@@ -370,7 +376,10 @@
     .who b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .icon-btn{width:38px;height:38px}
 
-    .int{gap:12px}
+    .int,.int-col{gap:12px}
+    #v-records .actions{grid-template-columns:1fr 1fr}
+    #syncBtn{grid-column:1/-1;order:-1}
+    .sw-wide{height:auto;border:0;justify-content:flex-start}
     th,td{padding:10px 12px}
     .toast{left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));max-width:none}
   }
@@ -399,7 +408,9 @@
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
-  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9M16 16l-4-4-4 4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-camera"viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
   <symbol id="i-image"viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
 </svg>
 
@@ -543,7 +554,8 @@
           <h1>Hồ sơ khách hàng</h1>
           <div class="actions">
             <button class="btn" id="jsonBtn"><svg class="i"><use href="#i-download"/></svg>JSON</button>
-            <button class="btn primary" id="csvBtn"><svg class="i"><use href="#i-download"/></svg>Xuất CSV cho AppSheet</button>
+            <button class="btn" id="csvBtn"><svg class="i"><use href="#i-download"/></svg>CSV</button>
+            <button class="btn primary" id="syncBtn"><svg class="i"><use href="#i-cloud"/></svg><span id="syncLabel">Đồng bộ Google Sheets</span></button>
           </div>
         </div>
 
@@ -570,7 +582,7 @@
               <tbody id="tbody"></tbody>
             </table>
           </div>
-          <div class="tfoot"><span id="rowCount">0 hồ sơ</span></div>
+          <div class="tfoot"><span id="rowCount">0 hồ sơ</span><span id="syncInfo"></span></div>
         </div>
       </section>
 
@@ -580,18 +592,36 @@
           <h1>Tích hợp Google AppSheet</h1>
         </div>
         <div class="int">
-          <div class="panel">
-            <div class="panel-h"><h2>Quy trình triển khai</h2></div>
-            <ol class="flow">
-              <li><div><b>Xuất dữ liệu</b><span>Tại <i>Hồ sơ khách hàng</i>, chọn <code>Xuất CSV cho AppSheet</code>. Tệp mã hóa UTF-8, tên cột không dấu.</span></div></li>
-              <li><div><b>Làm sạch hàng loạt</b><span>Chạy <code>python kyc_check.py khach_hang.csv</code> để chuẩn hóa SĐT, phát hiện trùng và tạo tệp <code>_cleaned.csv</code>.</span></div></li>
-              <li><div><b>Nhập vào Google Sheets</b><span>Tệp → Nhập → Tải lên, chọn “Thay thế trang tính hiện tại”.</span></div></li>
-              <li><div><b>Tạo ứng dụng AppSheet</b><span>Tiện ích mở rộng → AppSheet → Tạo ứng dụng. Đặt <code>ID</code> làm khóa chính.</span></div></li>
-              <li><div><b>Tự động hóa</b><span>Tạo Slice lọc <code>TrangThaiKYC = "Cần xác minh"</code> và Bot gửi email nhắc người phụ trách khi có hồ sơ mới.</span></div></li>
-            </ol>
+          <div class="int-col">
+            <div class="panel">
+              <div class="panel-h"><h2>Kết nối Google Sheets</h2><span id="connChip" class="chip b-none ml-auto">Chưa kết nối</span></div>
+              <div class="form">
+                <div class="fld wide"><label for="cfgUrl">URL ứng dụng web Apps Script</label><input id="cfgUrl" class="mono" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" spellcheck="false" autocapitalize="off"></div>
+                <div class="fld wide"><label for="cfgToken">Mã bảo mật</label>
+                  <div class="inline"><input id="cfgToken" class="mono" autocomplete="off" spellcheck="false" autocapitalize="off"><button class="btn" id="genTokenBtn" type="button">Tạo mã</button></div>
+                </div>
+                <label class="switch sw-wide"><input type="checkbox" id="cfgAuto">Tự động đồng bộ khi lưu hồ sơ</label>
+              </div>
+              <div class="panel-f">
+                <button class="btn ml-auto" id="testBtn"><svg class="i"><use href="#i-refresh"/></svg>Kiểm tra kết nối</button>
+                <button class="btn primary" id="saveCfgBtn"><svg class="i"><use href="#i-save"/></svg>Lưu</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-h"><h2>Cài đặt Apps Script</h2><button class="btn sm ml-auto" id="copyCodeBtn"><svg class="i"><use href="#i-copy"/></svg>Sao chép mã</button></div>
+              <ol class="flow">
+                <li><div><b>Tạo trang tính</b><span>Mở <code>sheets.new</code> và đặt tên, ví dụ “CardScan”.</span></div></li>
+                <li><div><b>Dán mã</b><span>Bấm <i>Tạo mã</i> rồi <i>Sao chép mã</i> ở trên (mã bảo mật được điền sẵn). Trong Sheets: Tiện ích mở rộng → Apps Script, xóa mã mặc định, dán vào và lưu.</span></div></li>
+                <li><div><b>Triển khai</b><span>Triển khai → Tùy chọn triển khai mới → Ứng dụng web. Thực thi dưới dạng <i>Tôi</i>, quyền truy cập <i>Bất kỳ ai</i>, rồi cấp quyền.</span></div></li>
+                <li><div><b>Kết nối</b><span>Sao chép URL kết thúc bằng <code>/exec</code>, dán vào ô URL, bấm <i>Lưu</i> và <i>Kiểm tra kết nối</i>.</span></div></li>
+                <li><div><b>Tạo ứng dụng AppSheet</b><span>Bấm <i>Đồng bộ Google Sheets</i> tại mục Hồ sơ, sau đó trong Sheets chọn Tiện ích mở rộng → AppSheet → Tạo ứng dụng.</span></div></li>
+              </ol>
+            </div>
           </div>
+
           <div class="panel">
-            <div class="panel-h"><h2>Cấu trúc bảng dữ liệu</h2><span class="sub ml-auto">11 cột</span></div>
+            <div class="panel-h"><h2>Cấu trúc trang tính “KhachHang”</h2><span class="sub ml-auto">13 cột</span></div>
             <div class="tablewrap">
               <table>
                 <thead><tr><th>Cột</th><th>Kiểu AppSheet</th><th>Mô tả</th></tr></thead>
@@ -607,16 +637,11 @@
                   <tr><td class="mono">GhiChu</td><td>LongText</td><td>SĐT phụ, nguồn gặp</td></tr>
                   <tr><td class="mono">TrangThaiKYC</td><td>Enum</td><td>Đạt · Cần xác minh · Không đạt</td></tr>
                   <tr><td class="mono">NgayTao</td><td>DateTime</td><td>Thời điểm số hóa</td></tr>
+                  <tr><td class="mono">CapNhatLuc</td><td>DateTime</td><td>Lần đồng bộ gần nhất</td></tr>
+                  <tr><td class="mono">AnhDanhThiep</td><td>Image</td><td>Chụp trong AppSheet, CardScan không ghi đè</td></tr>
                 </tbody>
               </table>
             </div>
-<pre><span class="c"># Kiểm tra &amp; làm sạch dữ liệu trước khi nhập</span>
-$ python kyc_check.py khach_hang.csv
-=== BÁO CÁO KYC: khach_hang.csv ===
-Tổng hồ sơ     : 6
-Đạt            : 1
-Cần xác minh   : 3
-Không đạt      : 2</pre>
           </div>
         </div>
       </section>
@@ -1151,6 +1176,7 @@ $('saveBtn').onclick = () => {
   }
   persist(); clearForm(); renderTable(); setStep(6);
   toast(`Đã lưu hồ sơ ${c.name || id} · ${STATUS_TEXT[res.status]}`);
+  if(syncCfg.auto) syncNow({ silent: true });
 };
 $('clearBtn').onclick = clearForm;
 function clearForm(){
@@ -1170,13 +1196,17 @@ function renderTable(){
   ['ok','warn','fail'].forEach(s => $('t_' + s).textContent = n(s));
   $('t_rate').textContent = contacts.length ? `Tỉ lệ đạt ${Math.round(n('ok') / contacts.length * 100)}%` : 'Tỉ lệ đạt —';
   $('rowCount').textContent = `${rows.length} / ${contacts.length} hồ sơ`;
+  const linked = !!(syncCfg.url && syncCfg.token), pendingN = contacts.filter(isPending).length;
+  $('syncInfo').textContent = !linked ? 'Chưa kết nối Google Sheets'
+    : pendingN ? `${pendingN} hồ sơ chưa đồng bộ` : (contacts.length ? 'Đã đồng bộ tất cả' : '');
+  if(!syncing) $('syncLabel').textContent = linked && pendingN ? `Đồng bộ Google Sheets · ${pendingN}` : 'Đồng bộ Google Sheets';
   $('tbody').innerHTML = rows.length ? rows.map(c => {
     const d = new Date(c.createdAt);
     return `<tr>
       <td><div class="who"><div class="ini">${esc(initials(c.name))}</div><div><b>${esc(c.name || '(chưa có tên)')}</b><small>${esc(c.title || '—')}</small></div></div></td>
       <td>${esc(c.company || '—')}</td>
       <td><span class="mono">${esc(c.phone || '—')}</span><small>${esc(c.email || '')}</small></td>
-      <td><span class="status s-${c.kyc}">${STATUS_TEXT[c.kyc]}</span></td>
+      <td><span class="status s-${c.kyc}">${STATUS_TEXT[c.kyc]}</span>${linked && isPending(c) ? '<span class="pend">Chưa đồng bộ</span>' : ''}</td>
       <td><span class="mono">${d.toLocaleDateString('vi-VN')}</span><small>${d.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' })}<span class="rid"> · ${esc(c.id)}</span></small></td>
       <td><div class="row-actions">
         <button class="icon-btn" data-edit="${c.id}" title="Chỉnh sửa"><svg class="i"><use href="#i-edit"/></svg></button>
@@ -1224,6 +1254,116 @@ $('jsonBtn').onclick = () => {
   download('khach_hang.json', JSON.stringify(contacts, null, 2), 'application/json');
 };
 
+/* ============ ĐỒNG BỘ GOOGLE SHEETS (qua Google Apps Script) ============ */
+// CardScan gửi hồ sơ tới ứng dụng web Apps Script gắn với một Google Sheets;
+// Google Sheets đó là nguồn dữ liệu của ứng dụng AppSheet.
+const SYNC_KEY = 'cardscan_sync_v1';
+let syncCfg = (() => { try{ return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; }catch(e){ return {}; } })();
+let syncing = false;
+const persistCfg = () => { try{ localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)); }catch(e){} };
+// Hồ sơ cần đồng bộ: chưa từng gửi, hoặc đã sửa sau lần gửi gần nhất
+const isPending = c => !c.syncedAt || (!!c.updatedAt && c.updatedAt > c.syncedAt);
+const toSheetRow = c => ({
+  ID: c.id, HoTen: c.name, ChucDanh: c.title, CongTy: c.company, SoDienThoai: c.phone, Email: c.email,
+  Website: c.website, DiaChi: c.address, GhiChu: c.note, TrangThaiKYC: STATUS_TEXT[c.kyc], NgayTao: c.createdAt
+});
+
+const CONN = { none:['b-none','Chưa kết nối'], busy:['b-busy','Đang kiểm tra...'], ok:['b-ok','Đã kết nối'], fail:['b-fail','Lỗi kết nối'] };
+function setConn(state, text){ const ch = $('connChip'); ch.className = 'chip ml-auto ' + CONN[state][0]; ch.textContent = text || CONN[state][1]; }
+function fillCfg(){
+  $('cfgUrl').value = syncCfg.url || ''; $('cfgToken').value = syncCfg.token || ''; $('cfgAuto').checked = !!syncCfg.auto;
+  setConn(syncCfg.url && syncCfg.token ? (syncCfg.lastOk ? 'ok' : 'none') : 'none');
+}
+function saveCfg(){
+  const url = $('cfgUrl').value.trim(), token = $('cfgToken').value.trim();
+  if(url && !/^https?:\/\/\S+$/.test(url)){ toast('URL không hợp lệ'); return false; }
+  if(url !== syncCfg.url || token !== syncCfg.token) syncCfg.lastOk = false;
+  Object.assign(syncCfg, { url, token, auto: $('cfgAuto').checked });
+  persistCfg(); renderTable(); if(!syncCfg.lastOk) setConn('none');
+  return true;
+}
+// Lỗi mạng/CORS thường do URL sai hoặc chưa đặt quyền truy cập "Bất kỳ ai"
+const netMsg = e => e instanceof TypeError ? 'không gọi được Apps Script — kiểm tra URL và quyền truy cập “Bất kỳ ai”' : e.message;
+async function parseRes(res){
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  let j; try{ j = await res.json(); }catch(e){ throw new Error('phản hồi không hợp lệ — kiểm tra lại cách triển khai'); }
+  if(!j.ok) throw new Error(j.error || 'lỗi không xác định');
+  return j;
+}
+async function sheetGet(){
+  const u = new URL(syncCfg.url); u.searchParams.set('token', syncCfg.token);
+  return parseRes(await fetch(u, { cache: 'no-store' }));
+}
+// Không đặt header Content-Type → "simple request", trình duyệt không gửi preflight (Apps Script không hỗ trợ OPTIONS)
+async function sheetPost(payload){
+  return parseRes(await fetch(syncCfg.url, { method: 'POST', body: JSON.stringify(payload) }));
+}
+
+async function syncNow(opts = {}){
+  if(syncing) return;
+  if(!syncCfg.url || !syncCfg.token){
+    if(!opts.silent){ toast('Chưa cấu hình kết nối Google Sheets'); switchView('integrate'); }
+    return;
+  }
+  const list = contacts.filter(isPending);
+  if(!list.length){ if(!opts.silent) toast('Tất cả hồ sơ đã được đồng bộ'); return; }
+  syncing = true; $('syncBtn').disabled = true; $('syncLabel').textContent = 'Đang đồng bộ...';
+  try{
+    const r = await sheetPost({ token: syncCfg.token, records: list.map(toSheetRow) });
+    const t = new Date().toISOString();
+    list.forEach(c => c.syncedAt = t); persist();
+    syncCfg.lastOk = true; persistCfg(); setConn('ok');
+    toast(`Đã đồng bộ ${list.length} hồ sơ · ${r.added} mới, ${r.updated} cập nhật`);
+  }catch(e){
+    toast('Đồng bộ thất bại: ' + netMsg(e));
+  }finally{
+    syncing = false; $('syncBtn').disabled = false; renderTable();
+  }
+}
+$('syncBtn').onclick = () => syncNow();
+$('saveCfgBtn').onclick = () => { if(saveCfg()) toast('Đã lưu cấu hình'); };
+$('cfgAuto').onchange = () => saveCfg();
+$('testBtn').onclick = async () => {
+  if(!saveCfg()) return;
+  if(!syncCfg.url || !syncCfg.token) return toast('Nhập URL và mã bảo mật trước');
+  setConn('busy'); $('testBtn').disabled = true;
+  try{
+    const r = await sheetGet();
+    syncCfg.lastOk = true; persistCfg();
+    setConn('ok', `Đã kết nối · ${r.rows} dòng`);
+    toast(`Kết nối thành công tới “${r.spreadsheet}”`);
+  }catch(e){
+    syncCfg.lastOk = false; persistCfg(); setConn('fail');
+    toast('Kết nối thất bại: ' + netMsg(e));
+  }finally{ $('testBtn').disabled = false; }
+};
+$('genTokenBtn').onclick = () => {
+  const a = new Uint8Array(16); crypto.getRandomValues(a);
+  $('cfgToken').value = [...a].map(b => (b % 36).toString(36)).join('');
+  toast('Đã tạo mã bảo mật mới — nhớ bấm Lưu');
+};
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+}
+$('copyCodeBtn').onclick = async () => {
+  try{
+    const res = await fetch('apps-script/Code.gs', { cache: 'no-store' });
+    if(!res.ok) throw new Error();
+    let code = await res.text();
+    const tk = $('cfgToken').value.trim().replace(/['\\]/g, '');
+    if(tk) code = code.replace(/const TOKEN = '[^']*';/, `const TOKEN = '${tk}';`);
+    await copyText(code);
+    toast(tk ? 'Đã sao chép mã Apps Script (đã điền mã bảo mật)' : 'Đã sao chép mã — nhớ đổi TOKEN trong mã');
+  }catch(e){
+    window.open('apps-script/Code.gs', '_blank');
+    toast('Không sao chép tự động được — đã mở tệp mã');
+  }
+};
+
 /* ============ DANH THIẾP MẪU (dùng thử khi chưa có ảnh thật) ============ */
 const SAMPLES = [
   { company:'CÔNG TY TNHH GIẢI PHÁP SỐ ÁNH DƯƠNG', name:'NGUYỄN VĂN AN', title:'Giám đốc Kinh doanh',
@@ -1256,7 +1396,7 @@ function genSample(){
 $('sampleBtn').onclick = $('sampleBtn2').onclick = genSample;
 
 /* ============ KHỞI TẠO ============ */
-renderTable(); runKyc(); setStep(1);
+fillCfg(); renderTable(); runKyc(); setStep(1);
 try{ const v = localStorage.getItem('cardscan_view'); if(v && VIEW_TITLE[v]) switchView(v); }catch(e){}
 </script>
 </body>
