@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#13151A">
+<title>CardScan KYC Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --font:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",Consolas,monospace;
+    --bg:#F4F3EF; --surface:#FFFFFF; --surface-2:#FAF9F6;
+    --ink:#16181D; --ink-2:#4A4F5A; --muted:#7A7F89;
+    --line:#E6E3DC; --line-strong:#D5D1C8;
+    --sidebar:#13151A; --sidebar-2:#1D2027; --sidebar-line:#262931; --sidebar-ink:#C3C7CF;
+    --accent:#0E6E5C; --accent-hover:#0B5C4D; --accent-2:#2BB596; --accent-soft:#E2F0EC;
+    --ok:#17794C; --ok-soft:#E5F3EB; --ok-line:#C5E4D2;
+    --warn:#A85A0C; --warn-soft:#FCF1E3; --warn-line:#F1D5B0;
+    --fail:#B42318; --fail-soft:#FDECEA; --fail-line:#F5C6C1;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+  [hidden]{display:none!important}
+  .i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+  /* ---------- App shell ---------- */
+  .app{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100vh;background:linear-gradient(to right,var(--sidebar) 244px,transparent 244px)}
+  .side{background:var(--sidebar);color:var(--sidebar-ink);display:flex;flex-direction:column;padding:18px 12px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;gap:11px;align-items:center;padding:2px 8px 18px;border-bottom:1px solid var(--sidebar-line);margin-bottom:10px}
+  .mark{width:32px;height:32px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:#fff;flex:none}
+  .mark .i{width:18px;height:18px}
+  .brand b{display:block;color:#fff;font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+  .brand small{display:block;font:500 10.5px var(--mono);color:#7D828C;letter-spacing:.08em;text-transform:uppercase}
+  .nav-label{font:600 10.5px var(--font);text-transform:uppercase;letter-spacing:.1em;color:#5F6470;padding:14px 10px 6px}
+  .nav button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--sidebar-ink);font-size:13.5px;position:relative}
+  .nav button:hover{background:var(--sidebar-2);color:#fff}
+  .nav button.active{background:#22262E;color:#fff}
+  .nav button.active::before{content:"";position:absolute;left:-12px;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--accent-2)}
+  .nav .count{margin-left:auto;font:500 11px var(--mono);background:#2A2E37;color:#C3C7CF;padding:1px 7px;border-radius:10px}
+  .side-foot{margin-top:auto;padding:14px 10px 2px;border-top:1px solid var(--sidebar-line);font-size:11.5px;color:#6B707B;line-height:1.6;display:flex;gap:9px}
+  .side-foot .i{color:var(--accent-2);margin-top:2px;width:14px;height:14px}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .top{height:56px;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5}
+  .crumb{font-size:13px;color:var(--muted)} .crumb b{color:var(--ink);font-weight:500}
+  .crumb .slash{margin:0 7px;color:var(--line-strong)}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+  .engine{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--ink-2);border:1px solid var(--line);padding:4px 11px;border-radius:999px;background:var(--surface-2)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#B8BCC4;flex:none}
+  .engine[data-s=ready] .dot{background:var(--ok)}
+  .engine[data-s=loading] .dot{background:var(--warn);animation:pulse 1s ease-in-out infinite}
+  .engine[data-s=error] .dot{background:var(--fail)}
+  @keyframes pulse{50%{opacity:.3}}
+  .user{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--ink-2);padding-left:16px;border-left:1px solid var(--line)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:#E9E6DF;color:var(--ink-2);display:grid;place-items:center;font-weight:600;font-size:11.5px}
+  .content{padding:26px 28px 48px;width:100%;max-width:1480px}
+
+  /* ---------- Page header ---------- */
+  .page-head{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+  .eyebrow{font:500 11px var(--mono);color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+  .page-head h1{font-size:23px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;line-height:1.25}
+  .page-head p{margin:0;color:var(--muted);font-size:13.5px;max-width:640px}
+  .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+  .btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:500 13px var(--font);cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+  .btn:hover:not(:disabled){background:var(--surface-2);border-color:#BFBBB1}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+  .btn.sm{height:30px;padding:0 10px;font-size:12.5px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn .i{width:15px;height:15px}
+  kbd{font:500 11px var(--mono);border:1px solid #3A3E47;border-bottom-width:2px;border-radius:4px;padding:0 5px;color:#D7DAE0}
+
+  /* ---------- Stepper ---------- */
+  .steps{display:flex;border:1px solid var(--line);background:var(--surface);border-radius:8px;margin-bottom:18px;overflow:hidden}
+  .step{flex:1;display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:var(--muted);border-right:1px solid var(--line);position:relative;min-width:0}
+  .step:last-child{border-right:0}
+  .step .n{width:22px;height:22px;border-radius:50%;border:1px solid var(--line-strong);display:grid;place-items:center;font:600 11px var(--mono);flex:none}
+  .step .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .step.done{color:var(--ink-2)}
+  .step.done .n{background:var(--accent-soft);border-color:transparent;color:var(--accent);font-size:0}
+  .step.done .n::before{content:"";width:9px;height:5px;border:solid var(--accent);border-width:0 0 2px 2px;transform:translateY(-1px) rotate(-45deg)}
+  .step.current{color:var(--ink);font-weight:500}
+  .step.current .n{background:var(--ink);border-color:var(--ink);color:#fff}
+  .step.current::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent)}
+
+  /* ---------- Panels ---------- */
+  .ws{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(380px,1fr);gap:18px;align-items:start}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(20,22,27,.03);min-width:0}
+  .panel-h{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);min-height:52px}
+  .panel-h h2{font-size:14px;font-weight:600;margin:0;white-space:nowrap}
+  .seg button{white-space:nowrap}
+  .panel-h .sub{font:12px var(--mono);color:var(--muted)}
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:2px}
+  .seg button{all:unset;padding:4px 11px;font-size:12.5px;border-radius:4px;cursor:pointer;color:var(--muted)}
+  .seg button:hover{color:var(--ink)}
+  .seg button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:500}
+  .ml-auto{margin-left:auto}
+
+  /* Viewer */
+  .viewer{position:relative;background:#1A1C21;background-image:radial-gradient(#2B2E35 1px,transparent 1px);background-size:18px 18px;min-height:400px;display:grid;place-items:center;padding:28px 20px}
+  .viewer.over{box-shadow:inset 0 0 0 2px var(--accent-2)}
+  #preview canvas{display:none;max-width:100%;max-height:460px;width:auto;height:auto;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  #preview[data-tab=orig] #origCv,#preview[data-tab=proc] #procCv{display:block}
+  .viewer:not(.has-image) #preview{display:none}
+  .viewer.has-image .drop{display:none}
+  #preview.crop #origCv{cursor:crosshair;outline:2px solid var(--accent-2);outline-offset:4px}
+  .drop{color:#C3C7CF;text-align:center;border:1px dashed #3B3F48;border-radius:10px;padding:40px 32px;width:min(460px,100%);cursor:pointer;transition:border-color .15s,background .15s}
+  .drop:hover{border-color:#565B66;background:rgba(255,255,255,.02)}
+  .drop .ic{width:46px;height:46px;border-radius:10px;background:#262931;border:1px solid #33363E;display:grid;place-items:center;margin:0 auto 16px;color:#E6E8EC}
+  .drop .ic .i{width:20px;height:20px}
+  .drop h3{color:#fff;font-size:15px;font-weight:500;margin:0 0 5px}
+  .drop p{margin:0 0 18px;font-size:12.5px;color:#8A8F99}
+  .drop .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .drop .btn{background:#262931;border-color:#3A3E47;color:#EDEFF2}
+  .drop .btn:hover{background:#2E323B;border-color:#4A4F5A}
+  .drop .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .drop .fmt{margin-top:18px;font:11px var(--mono);color:#646975;letter-spacing:.04em}
+  .crop-hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(19,21,26,.92);color:#fff;font-size:12.5px;padding:7px 14px;border-radius:999px;border:1px solid #3A3E47;white-space:nowrap;display:flex;gap:8px;align-items:center;z-index:2}
+  .crop-hint b{font:600 12px var(--mono);color:var(--accent-2)}
+  .crop-hint:empty{display:none}
+
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line)}
+  .vsep{width:1px;height:22px;background:var(--line);margin:0 4px}
+  .switch{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2);cursor:pointer;user-select:none;padding:0 4px}
+  .switch input{appearance:none;-webkit-appearance:none;width:28px;height:16px;border-radius:999px;background:#D3CFC6;position:relative;cursor:pointer;margin:0;transition:background .15s;flex:none}
+  .switch input::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked{background:var(--accent)}
+  .switch input:checked::after{left:14px}
+  .sel{height:30px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);font:12.5px var(--font);color:var(--ink);padding:0 8px;cursor:pointer}
+  .sel-wrap{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+
+  .progress{height:2px;background:var(--line);overflow:hidden}
+  .progress div{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .statusbar{display:flex;align-items:flex-start;gap:10px;padding:11px 16px;font-size:12.5px;color:var(--ink-2);background:var(--surface-2);line-height:1.5}
+  .statusbar .dot{margin-top:6px}
+  .statusbar .dot[data-tone=ok]{background:var(--ok)}
+  .statusbar .dot[data-tone=warn]{background:var(--warn)}
+  .statusbar .dot[data-tone=err]{background:var(--fail)}
+  .statusbar .dot[data-tone=busy]{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+  details.raw{border-top:1px solid var(--line)}
+  details.raw summary{padding:11px 16px;cursor:pointer;font-size:12.5px;color:var(--ink-2);font-weight:500;list-style:none;display:flex;align-items:center;gap:8px}
+  details.raw summary::-webkit-details-marker{display:none}
+  details.raw summary .chev{transition:transform .15s;width:14px;height:14px;color:var(--muted)}
+  details.raw[open] summary .chev{transform:rotate(90deg)}
+  details.raw summary .sub{margin-left:auto;font:11.5px var(--mono);color:var(--muted);font-weight:400}
+  .raw-body{padding:0 16px 14px}
+  textarea{width:100%;min-height:130px;font:12.5px/1.55 var(--mono);border:1px solid var(--line-strong);border-radius:6px;padding:10px 12px;background:var(--surface-2);color:var(--ink);resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .raw-body .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--muted);gap:10px}
+
+  /* Form */
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:16px}
+  .form-sec{grid-column:1/-1;font:600 10.5px var(--font);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:flex;align-items:center;gap:10px}
+  .form-sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  .form-sec:not(:first-child){margin-top:6px}
+  .fld label{display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:5px}
+  .fld label em{color:var(--fail);font-style:normal;margin-left:2px}
+  .fld input{width:100%;height:36px;border:1px solid var(--line-strong);border-radius:6px;padding:0 11px;font:13.5px var(--font);color:var(--ink);background:var(--surface);transition:border-color .12s,box-shadow .12s}
+  .fld input::placeholder{color:#A9ADB5}
+  .fld input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .fld input.mono{font-family:var(--mono);font-size:13px}
+  .fld.wide{grid-column:1/-1}
+  .edit-tag{font:500 11.5px var(--mono);color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn-line);padding:2px 8px;border-radius:4px}
+  .edit-tag:empty{display:none}
+
+  /* KYC */
+  .kyc-h{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--line)}
+  .kyc-h h3{font-size:13.5px;margin:0;font-weight:600}
+  .kyc-h .score{font:12px var(--mono);color:var(--muted)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;border:1px solid;white-space:nowrap}
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .b-ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-line)}
+  .b-warn{color:var(--warn);background:var(--warn-soft);border-color:var(--warn-line)}
+  .b-fail{color:var(--fail);background:var(--fail-soft);border-color:var(--fail-line)}
+  .b-none{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+  ul.kyc{list-style:none;margin:0;padding:0 16px 8px}
+  ul.kyc li{display:grid;grid-template-columns:20px 108px 1fr;gap:10px;align-items:start;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px}
+  ul.kyc li.empty{display:block;color:var(--muted);text-align:center;padding:22px 0 18px}
+  .k-ic{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;margin-top:1px}
+  .k-ic .i{width:11px;height:11px;stroke-width:2.6}
+  .l-ok .k-ic{background:var(--ok-soft);color:var(--ok)}
+  .l-warn .k-ic{background:var(--warn-soft);color:var(--warn)}
+  .l-fail .k-ic{background:var(--fail-soft);color:var(--fail)}
+  ul.kyc b{font-weight:500;color:var(--ink)}
+  ul.kyc .m{color:var(--ink-2)}
+  .panel-f{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);background:var(--surface-2);border-radius:0 0 8px 8px}
+  .panel-f .hint{font-size:12px;color:var(--muted);margin-right:auto}
+
+  /* ---------- Records ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:18px}
+  .kpi{padding:16px 20px;border-right:1px solid var(--line)}
+  .kpi:last-child{border-right:0}
+  .kpi .k{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .kpi .v{font-size:30px;font-weight:600;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums;line-height:1.3}
+  .kpi .s{font:12px var(--mono);color:var(--muted)}
+  .kpi .k .dot{width:8px;height:8px}
+  .kpi.ok .dot{background:var(--ok)} .kpi.warn .dot{background:var(--warn)} .kpi.fail .dot{background:var(--fail)}
+  .tb{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .search{position:relative;flex:1;min-width:200px;max-width:340px}
+  .search .i{position:absolute;left:10px;top:9px;color:var(--muted);width:15px;height:15px}
+  .search input{width:100%;height:33px;border:1px solid var(--line-strong);border-radius:6px;padding:0 10px 0 32px;font:13px var(--font);background:var(--surface);color:var(--ink)}
+  .search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th{font:600 11px var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:left;padding:10px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:11px 16px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  tbody tr:hover td{background:#FBFAF7}
+  tbody tr:last-child td{border-bottom:0}
+  .who{display:flex;gap:11px;align-items:center;min-width:200px}
+  .ini{width:34px;height:34px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font:600 12px var(--mono);flex:none}
+  .who b{display:block;font-weight:500}
+  td small{color:var(--muted);font-size:12px;display:block}
+  .mono{font-family:var(--mono);font-size:12.5px}
+  .status{display:inline-flex;gap:7px;align-items:center;font-size:12.5px;font-weight:500;white-space:nowrap}
+  .status::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .s-ok{color:var(--ok)} .s-warn{color:var(--warn)} .s-fail{color:var(--fail)}
+  .row-actions{display:flex;gap:2px;justify-content:flex-end}
+  .icon-btn{all:unset;width:30px;height:30px;border-radius:6px;display:inline-grid;place-items:center;color:var(--muted);cursor:pointer}
+  .icon-btn:hover{background:var(--bg);color:var(--ink)}
+  .icon-btn.danger:hover{background:var(--fail-soft);color:var(--fail)}
+  .icon-btn .i{pointer-events:none;width:15px;height:15px}
+  .empty-row td{text-align:center;padding:56px 16px;color:var(--muted)}
+  .empty-row b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+  .tfoot{padding:10px 16px;font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line);display:flex;justify-content:space-between}
+
+  /* ---------- Integration ---------- */
+  .int{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start}
+  ol.flow{list-style:none;margin:0;padding:6px 16px 14px;counter-reset:f}
+  ol.flow li{counter-increment:f;display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+  ol.flow li:first-child{border-top:0}
+  ol.flow li::before{content:counter(f,decimal-leading-zero);font:600 12px var(--mono);color:var(--accent);padding-top:1px}
+  ol.flow b{display:block;font-weight:500;margin-bottom:2px}
+  ol.flow span{color:var(--ink-2);font-size:13px}
+  code{font:12px var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  pre{margin:0;padding:14px 16px;background:#16181D;color:#D7DAE0;font:12px/1.65 var(--mono);border-radius:0 0 8px 8px;overflow-x:auto}
+  pre .c{color:#6F7682}
+
+  /* ---------- Toast ---------- */
+  .toast{position:fixed;right:24px;bottom:24px;background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;display:flex;gap:10px;align-items:center;box-shadow:0 12px 32px rgba(0,0,0,.22);transform:translateY(16px);opacity:0;transition:.2s;pointer-events:none;z-index:50;max-width:420px}
+  .toast.show{transform:none;opacity:1}
+  .toast .i{color:var(--accent-2)}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:1200px){ .ws,.int{grid-template-columns:1fr} }
+  @media (max-width:920px){
+    .app{grid-template-columns:64px minmax(0,1fr);background:linear-gradient(to right,var(--sidebar) 64px,transparent 64px)}
+    .brand,.nav-label,.nav .t,.nav .count{display:none}
+    .nav button{justify-content:center}
+    .step .t{display:none} .step{justify-content:center}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .kpi:nth-child(2){border-right:0} .kpi:nth-child(-n+2){border-bottom:1px solid var(--line)}
+    .user span{display:none}
+  }
+  .mob-only{display:none!important}
+
+  /* ===== ĐIỆN THOẠI (tối ưu iPhone 12 Pro · 390 × 844) ===== */
+  @media (max-width:700px){
+    .mob-only{display:inline-flex!important} h3.mob-only{display:block!important}
+    .desk-only{display:none!important}
+    body{-webkit-text-size-adjust:100%;touch-action:manipulation}
+    .app{display:block;background:none;padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+
+    /* Thanh điều hướng dưới đáy kiểu iOS */
+    .side{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:30;flex-direction:row;
+      padding:6px 10px calc(6px + env(safe-area-inset-bottom));background:rgba(19,21,26,.96);
+      -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--sidebar-line)}
+    .nav{display:flex;width:100%;gap:4px}
+    .nav button{flex:1;flex-direction:column;justify-content:center;gap:3px;padding:7px 4px;border-radius:8px;color:#8A8F99;font-size:0}
+    .nav button .i{width:22px;height:22px}
+    .nav button .t{display:block!important;font-size:0}
+    .nav button .t::after{content:attr(data-short);font-size:11px;font-weight:500}
+    .nav button.active{background:transparent;color:#fff}
+    .nav button.active .i{color:var(--accent-2)}
+    .nav button.active::before{display:none}
+    .nav .count{display:block!important;position:absolute;top:2px;left:calc(50% + 7px);font-size:10px;line-height:16px;padding:0 5px;background:var(--accent);color:#fff}
+    .nav .count:empty,.nav .count[data-zero]{display:none!important}
+
+    .top{height:auto;padding:calc(12px + env(safe-area-inset-top)) 16px 12px}
+    .crumb #crumbSec,.crumb .slash{display:none}
+    .crumb b{font-size:17px;font-weight:600;letter-spacing:-.01em}
+    .engine{font-size:11px;padding:3px 10px}
+    .content{padding:12px 12px 20px}
+
+    .page-head{margin-bottom:12px}
+    .page-head h1{display:none}
+    #v-integrate .page-head{display:none}
+    .actions{margin:0;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn{height:44px;font-size:14px;justify-content:center}
+    .btn.sm{height:42px;font-size:13.5px}
+
+    .steps{margin-bottom:12px}
+    .step{padding:9px 6px;justify-content:center;gap:8px}
+    .step .t{display:none}
+    .step.current{flex:2.6}
+    .step.current .t{display:block}
+
+    .ws{grid-template-columns:minmax(0,1fr);gap:12px}
+    .panel{border-radius:10px}
+    .panel-h{padding:10px 12px;min-height:50px}
+    #imgMeta{display:none}
+    .viewer{min-height:240px;padding:14px 10px}
+    #preview canvas{max-height:56vh}
+    .drop{border:0;padding:24px 8px}
+    .drop h3{font-size:16px;margin-bottom:16px}
+    .drop .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+    .drop #camBtn{grid-column:1/-1}
+    .drop #pickBtn{background:#262931;border-color:#3A3E47}
+    .crop-hint{top:10px;font-size:12.5px}
+    .viewer:has(#preview.crop){padding:52px 4px 12px}   /* chừa chỗ cho hướng dẫn, ảnh rộng tối đa để chạm góc chính xác */
+
+    #viewer:not(.has-image) + .toolbar{display:none}
+    .toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px}
+    .toolbar .btn{padding:0 8px}
+    #cropBtn{grid-column:1/-1;order:-1;background:var(--ink);border-color:var(--ink);color:#fff}
+    #cropBtn:disabled{opacity:.45}
+    .vsep{display:none}
+    .switch{height:42px;justify-content:center;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
+    .sel-wrap{margin:0;grid-column:1/-1}
+    .sel{width:100%;height:42px;font-size:14px}
+    .statusbar{padding:10px 12px;font-size:13px}
+    details.raw summary{padding:13px 12px}
+    .raw-body{padding:0 12px 12px}
+    textarea{font-size:14px}
+
+    .form{grid-template-columns:1fr;padding:14px 12px;gap:12px}
+    .fld label{font-size:13px}
+    .fld input{height:46px;font-size:16px}            /* 16px: Safari iOS không tự phóng to khi chạm */
+    .fld input.mono{font-size:15px}
+    .kyc-h{padding:12px}
+    ul.kyc{padding:0 12px 6px}
+    ul.kyc li{grid-template-columns:20px 1fr;gap:2px 10px;font-size:13px}
+    ul.kyc li .m{grid-column:2}
+    .panel-f{display:grid;grid-template-columns:1fr 1.6fr;padding:12px}
+    .panel-f .btn{margin:0}
+
+    .kpis{grid-template-columns:1fr 1fr;margin-bottom:12px}
+    .kpi{padding:12px 14px}
+    .kpi .v{font-size:24px}
+    .tb{padding:10px 12px;flex-direction:column;align-items:stretch;gap:8px}
+    .tb .seg{max-width:100%;overflow-x:auto;display:flex}
+    .tb .seg button{flex:1 0 auto;text-align:center;white-space:nowrap;padding:7px 8px}
+    .rid{display:none}
+    .seg button{padding:6px 11px;font-size:13px}
+    .search{max-width:none;min-width:0;width:100%;margin:0}
+    .search .i{top:13px}
+    .search input{height:44px;font-size:16px}
+
+    /* Bảng hồ sơ → dạng thẻ */
+    #recTable thead{display:none}
+    #recTable,#recTable tbody{display:block}
+    #recTable tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px;border-bottom:1px solid var(--line)}
+    #recTable td{display:block;padding:0;border:0;background:none!important;min-width:0}
+    #recTable td:nth-child(1){grid-column:1;grid-row:1}
+    #recTable td:nth-child(4){grid-column:2;grid-row:1;padding-top:2px}
+    #recTable td:nth-child(2),#recTable td:nth-child(3),#recTable td:nth-child(5){grid-column:1/-1;padding-left:45px;font-size:13px}
+    #recTable td:nth-child(2){color:var(--ink-2);margin-top:4px}
+    #recTable td:nth-child(5){grid-column:1}
+    #recTable td:nth-child(5) .mono,#recTable td:nth-child(5) small{display:inline;font-size:12px;color:var(--muted)}
+    #recTable td:nth-child(5) small::before{content:" · "}
+    #recTable td:nth-child(6){grid-column:2;grid-row:4;align-self:end}
+    #recTable tr.empty-row{display:block}
+    #recTable tr.empty-row td{padding:40px 12px}
+    .who{min-width:0}
+    .who b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .icon-btn{width:38px;height:38px}
+
+    .int{gap:12px}
+    th,td{padding:10px 12px}
+    .toast{left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));max-width:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- Icon sprite (nét mảnh, tự vẽ bằng SVG) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.2 1.7-2 3-2s2.4.8 3 2"/><path d="M15 10h3M15 14h3"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 5v9M12 19h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-image"viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <div class="brand">
+      <div><b>CardScan</b><small>KYC Console</small></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">Vận hành</div>
+      <button data-view="scan" class="active" title="Số hóa danh thiếp"><svg class="i"><use href="#i-scan"/></svg><span class="t" data-short="Quét thẻ">Số hóa danh thiếp</span></button>
+      <button data-view="records" title="Hồ sơ khách hàng"><svg class="i"><use href="#i-users"/></svg><span class="t" data-short="Hồ sơ">Hồ sơ khách hàng</span><span class="count" id="navCount">0</span></button>
+      <div class="nav-label">Hệ thống</div>
+      <button data-view="integrate" title="Tích hợp AppSheet"><svg class="i"><use href="#i-link"/></svg><span class="t" data-short="AppSheet">Tích hợp AppSheet</span></button>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <!-- ============ TOPBAR ============ -->
+    <header class="top">
+      <div class="crumb"><span id="crumbSec">Vận hành</span><span class="slash">/</span><b id="crumb">Số hóa danh thiếp</b></div>
+      <div class="top-right">
+        <div class="engine" id="engine" data-s="idle"><span class="dot"></span><span id="engineText">OCR</span></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- ================= VIEW: SCAN ================= -->
+      <section class="view" id="v-scan">
+        <div class="page-head">
+          <h1>Số hóa danh thiếp</h1>
+          <div class="actions">
+            <button class="btn" id="sampleBtn"><svg class="i"><use href="#i-card"/></svg>Tạo thẻ mẫu</button>
+            <button class="btn primary" id="ocrBtn" disabled><svg class="i"><use href="#i-play"/></svg>Chạy nhận dạng</button>
+          </div>
+        </div>
+
+        <div class="steps" id="steps">
+          <div class="step" data-step="1"><span class="n">1</span><span class="t">Tải ảnh</span></div>
+          <div class="step" data-step="2"><span class="n">2</span><span class="t">Căn chỉnh</span></div>
+          <div class="step" data-step="3"><span class="n">3</span><span class="t">Nhận dạng</span></div>
+          <div class="step" data-step="4"><span class="n">4</span><span class="t">Kiểm tra KYC</span></div>
+          <div class="step" data-step="5"><span class="n">5</span><span class="t">Lưu hồ sơ</span></div>
+        </div>
+
+        <div class="ws">
+          <!-- LEFT: image -->
+          <div class="panel">
+            <div class="panel-h">
+              <h2>Ảnh nguồn</h2>
+              <span class="sub" id="imgMeta"></span>
+              <div class="seg ml-auto" id="tabs">
+                <button data-tab="orig" class="active">Ảnh gốc</button>
+                <button data-tab="proc">Đầu vào OCR</button>
+              </div>
+            </div>
+            <div class="viewer" id="viewer">
+              <div class="drop" id="drop">
+                <div class="ic"><svg class="i"><use href="#i-upload"/></svg></div>
+                <h3 class="desk-only">Kéo thả ảnh danh thiếp vào đây</h3>
+                <p class="desk-only">hoặc chọn tệp · dán bằng <kbd>Ctrl</kbd> + <kbd>V</kbd></p>
+                <h3 class="mob-only">Chụp hoặc chọn ảnh danh thiếp</h3>
+                <div class="row">
+                  <button class="btn primary mob-only" id="camBtn"><svg class="i"><use href="#i-camera"/></svg>Chụp ảnh</button>
+                  <button class="btn primary" id="pickBtn"><svg class="i"><use href="#i-image"/></svg>Chọn ảnh</button>
+                  <button class="btn" id="sampleBtn2"><svg class="i"><use href="#i-card"/></svg>Thẻ mẫu</button>
+                </div>
+                <input id="file" type="file" accept="image/*" hidden>
+                <input id="fileCam" type="file" accept="image/*" capture="environment" hidden>
+              </div>
+              <div id="preview" data-tab="orig">
+                <canvas id="origCv"></canvas>
+                <canvas id="procCv"></canvas>
+              </div>
+              <div class="crop-hint" id="cropHint"></div>
+            </div>
+            <div class="toolbar">
+              <button class="btn sm" id="changeBtn"><svg class="i"><use href="#i-upload"/></svg>Đổi ảnh</button>
+              <button class="btn sm" id="cropBtn" disabled><svg class="i"><use href="#i-crop"/></svg><span>Làm thẳng thẻ</span></button>
+              <button class="btn sm" id="resetImgBtn" disabled><svg class="i"><use href="#i-undo"/></svg>Khôi phục</button>
+              <span class="vsep"></span>
+              <label class="switch" title="Chuyển xám + kéo giãn tương phản"><input type="checkbox" id="pre" checked>Tương phản</label>
+              <label class="switch" title="Nhị phân hóa bằng ngưỡng Otsu"><input type="checkbox" id="bin">Otsu</label>
+              <span class="sel-wrap ml-auto" title="Page Segmentation Mode — cách Tesseract phân tích bố cục">
+                <select id="psm" class="sel">
+                  <option value="auto" selected>Tự động (4 + 11)</option>
+                  <option value="4">Một cột · PSM 4</option>
+                  <option value="11">Rải rác · PSM 11</option>
+                  <option value="3">Tự phân tích · PSM 3</option>
+                  <option value="6">Khối đều · PSM 6</option>
+                </select>
+              </span>
+            </div>
+            <div class="progress"><div id="bar"></div></div>
+            <div class="statusbar"><span class="dot" id="sDot"></span><span id="status">Chưa có ảnh.</span></div>
+            <details class="raw">
+              <summary><svg class="i chev"><use href="#i-chev"/></svg>Văn bản OCR gốc<span class="sub" id="rawMeta">—</span></summary>
+              <div class="raw-body">
+                <textarea id="raw" placeholder="Kết quả nhận dạng sẽ hiển thị tại đây..." spellcheck="false"></textarea>
+                <div class="row" style="justify-content:flex-end"><button class="btn sm" id="reparseBtn"><svg class="i"><use href="#i-refresh"/></svg>Trích xuất lại</button></div>
+              </div>
+            </details>
+          </div>
+
+          <!-- RIGHT: form + KYC -->
+          <div class="panel">
+            <div class="panel-h">
+              <h2>Thông tin khách hàng</h2>
+              <span class="edit-tag ml-auto" id="editTag"></span>
+            </div>
+            <div class="form">
+              <div class="form-sec">Cá nhân</div>
+              <div class="fld"><label for="f_name">Họ và tên<em>*</em></label><input id="f_name" autocomplete="off"></div>
+              <div class="fld"><label for="f_title">Chức danh</label><input id="f_title" autocomplete="off"></div>
+              <div class="fld wide"><label for="f_company">Công ty / Tổ chức</label><input id="f_company" autocomplete="off"></div>
+              <div class="form-sec">Liên hệ</div>
+              <div class="fld"><label for="f_phone">Số điện thoại</label><input id="f_phone" class="mono" autocomplete="off"></div>
+              <div class="fld"><label for="f_email">Email</label><input id="f_email" class="mono" autocomplete="off"></div>
+              <div class="fld"><label for="f_website">Website</label><input id="f_website" class="mono" autocomplete="off"></div>
+              <div class="fld"><label for="f_note">Ghi chú</label><input id="f_note" placeholder="Nguồn gặp, SĐT phụ..." autocomplete="off"></div>
+              <div class="fld wide"><label for="f_address">Địa chỉ</label><input id="f_address" autocomplete="off"></div>
+            </div>
+            <div class="kyc-h">
+              <h3>Kiểm tra KYC</h3>
+              <span class="score" id="kycScore"></span>
+              <span id="kycBadge" class="chip b-none ml-auto">Chưa có dữ liệu</span>
+            </div>
+            <ul id="kycList" class="kyc"></ul>
+            <div class="panel-f">
+              <button class="btn ml-auto" id="clearBtn"><svg class="i"><use href="#i-refresh"/></svg>Làm mới</button>
+              <button class="btn primary" id="saveBtn"><svg class="i"><use href="#i-save"/></svg><span id="saveLabel">Lưu hồ sơ</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW: RECORDS ================= -->
+      <section class="view" id="v-records" hidden>
+        <div class="page-head">
+          <h1>Hồ sơ khách hàng</h1>
+          <div class="actions">
+            <button class="btn" id="jsonBtn"><svg class="i"><use href="#i-download"/></svg>JSON</button>
+            <button class="btn primary" id="csvBtn"><svg class="i"><use href="#i-download"/></svg>Xuất CSV cho AppSheet</button>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="k">Tổng hồ sơ</div><div class="v" id="t_all">0</div><div class="s" id="t_rate">Tỉ lệ đạt —</div></div>
+          <div class="kpi ok"><div class="k"><span class="dot"></span>Đạt KYC</div><div class="v" id="t_ok">0</div></div>
+          <div class="kpi warn"><div class="k"><span class="dot"></span>Cần xác minh</div><div class="v" id="t_warn">0</div></div>
+          <div class="kpi fail"><div class="k"><span class="dot"></span>Không đạt</div><div class="v" id="t_fail">0</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="tb">
+            <div class="seg" id="filter">
+              <button data-f="all" class="active">Tất cả</button>
+              <button data-f="ok">Đạt</button>
+              <button data-f="warn">Cần xác minh</button>
+              <button data-f="fail">Không đạt</button>
+            </div>
+            <div class="search ml-auto"><svg class="i"><use href="#i-search"/></svg><input id="search" placeholder="Tìm theo tên, công ty, SĐT, email"></div>
+          </div>
+          <div class="tablewrap">
+            <table id="recTable">
+              <thead><tr><th>Khách hàng</th><th>Công ty</th><th>Liên hệ</th><th>KYC</th><th>Ngày tạo</th><th></th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div class="tfoot"><span id="rowCount">0 hồ sơ</span></div>
+        </div>
+      </section>
+
+      <!-- ================= VIEW: INTEGRATION ================= -->
+      <section class="view" id="v-integrate" hidden>
+        <div class="page-head">
+          <h1>Tích hợp Google AppSheet</h1>
+        </div>
+        <div class="int">
+          <div class="panel">
+            <div class="panel-h"><h2>Quy trình triển khai</h2></div>
+            <ol class="flow">
+              <li><div><b>Xuất dữ liệu</b><span>Tại <i>Hồ sơ khách hàng</i>, chọn <code>Xuất CSV cho AppSheet</code>. Tệp mã hóa UTF-8, tên cột không dấu.</span></div></li>
+              <li><div><b>Làm sạch hàng loạt</b><span>Chạy <code>python kyc_check.py khach_hang.csv</code> để chuẩn hóa SĐT, phát hiện trùng và tạo tệp <code>_cleaned.csv</code>.</span></div></li>
+              <li><div><b>Nhập vào Google Sheets</b><span>Tệp → Nhập → Tải lên, chọn “Thay thế trang tính hiện tại”.</span></div></li>
+              <li><div><b>Tạo ứng dụng AppSheet</b><span>Tiện ích mở rộng → AppSheet → Tạo ứng dụng. Đặt <code>ID</code> làm khóa chính.</span></div></li>
+              <li><div><b>Tự động hóa</b><span>Tạo Slice lọc <code>TrangThaiKYC = "Cần xác minh"</code> và Bot gửi email nhắc người phụ trách khi có hồ sơ mới.</span></div></li>
+            </ol>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><h2>Cấu trúc bảng dữ liệu</h2><span class="sub ml-auto">11 cột</span></div>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Cột</th><th>Kiểu AppSheet</th><th>Mô tả</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">ID</td><td>Text · Key</td><td>Mã hồ sơ tự sinh</td></tr>
+                  <tr><td class="mono">HoTen</td><td>Name</td><td>Họ tên người liên hệ</td></tr>
+                  <tr><td class="mono">ChucDanh</td><td>Text</td><td>Chức danh</td></tr>
+                  <tr><td class="mono">CongTy</td><td>Text</td><td>Công ty / tổ chức</td></tr>
+                  <tr><td class="mono">SoDienThoai</td><td>Phone</td><td>Đã chuẩn hóa định dạng</td></tr>
+                  <tr><td class="mono">Email</td><td>Email</td><td>Chữ thường</td></tr>
+                  <tr><td class="mono">Website</td><td>Url</td><td>Trang web công ty</td></tr>
+                  <tr><td class="mono">DiaChi</td><td>Address</td><td>Địa chỉ</td></tr>
+                  <tr><td class="mono">GhiChu</td><td>LongText</td><td>SĐT phụ, nguồn gặp</td></tr>
+                  <tr><td class="mono">TrangThaiKYC</td><td>Enum</td><td>Đạt · Cần xác minh · Không đạt</td></tr>
+                  <tr><td class="mono">NgayTao</td><td>DateTime</td><td>Thời điểm số hóa</td></tr>
+                </tbody>
+              </table>
+            </div>
+<pre><span class="c"># Kiểm tra &amp; làm sạch dữ liệu trước khi nhập</span>
+$ python kyc_check.py khach_hang.csv
+=== BÁO CÁO KYC: khach_hang.csv ===
+Tổng hồ sơ     : 6
+Đạt            : 1
+Cần xác minh   : 3
+Không đạt      : 2</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><svg class="i"><use href="#i-check"/></svg><span id="toastText"></span></div>
+
+<script>
+/* ============ TIỆN ÍCH ============ */
+const $ = id => document.getElementById(id);
+const FIELDS = ['name','title','company','phone','email','website','address','note'];
+const STORE_KEY = 'cardscan_contacts_v1';
+let contacts = loadContacts();
+let editingId = null;
+let currentImage = null;
+
+function loadContacts(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }catch(e){ return []; } }
+function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(contacts)); }catch(e){} }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// tone: info | ok | warn | err | busy
+function setStatus(t, p, tone = 'info'){
+  $('status').textContent = t; $('sDot').dataset.tone = tone;
+  if(p !== undefined) $('bar').style.width = Math.round(p * 100) + '%';
+}
+let toastTimer;
+function toast(msg){
+  $('toastText').textContent = msg; $('toast').classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2600);
+}
+function setEngine(state, text){ $('engine').dataset.s = state; $('engineText').textContent = text; }
+// Thanh tiến trình 5 bước: các bước < n là "xong", bước n là "đang làm"
+function setStep(n){
+  document.querySelectorAll('#steps .step').forEach(s => {
+    const k = +s.dataset.step;
+    s.classList.toggle('done', k < n); s.classList.toggle('current', k === n);
+  });
+}
+
+/* ============ ĐIỀU HƯỚNG ============ */
+const VIEW_TITLE = { scan:'Số hóa danh thiếp', records:'Hồ sơ khách hàng', integrate:'Tích hợp AppSheet' };
+function switchView(v){
+  document.querySelectorAll('.view').forEach(s => s.hidden = s.id !== 'v-' + v);
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  $('crumb').textContent = VIEW_TITLE[v];
+  $('crumbSec').textContent = v === 'integrate' ? 'Hệ thống' : 'Vận hành';
+  try{ localStorage.setItem('cardscan_view', v); }catch(e){}
+  window.scrollTo({ top: 0 });
+}
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+function showTab(t){
+  $('preview').dataset.tab = t;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { if(!cropPts) showTab(b.dataset.tab); });
+
+/* ============ BƯỚC 1: NẠP ẢNH ============ */
+const ctx2d = cv => cv.getContext('2d', { willReadFrequently: true });
+const imgW = im => im.naturalWidth || im.width, imgH = im => im.naturalHeight || im.height;
+const viewer = $('viewer');
+$('drop').onclick = e => { if(!e.target.closest('button')) $('file').click(); };
+$('pickBtn').onclick = $('changeBtn').onclick = () => $('file').click();
+$('camBtn').onclick = () => $('fileCam').click();
+$('file').onchange = $('fileCam').onchange = e => { e.target.files[0] && loadFile(e.target.files[0]); e.target.value = ''; };
+// Chặn trình duyệt tự mở ảnh khi thả lệch ra ngoài vùng kéo thả
+['dragover','drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
+['dragover','dragenter'].forEach(ev => viewer.addEventListener(ev, e => { e.preventDefault(); viewer.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => viewer.addEventListener(ev, e => { e.preventDefault(); viewer.classList.remove('over'); }));
+viewer.addEventListener('drop', e => handleTransfer(e.dataTransfer));
+// Dán ảnh bằng Ctrl+V (VD: chuột phải ảnh trên web → "Sao chép hình ảnh")
+document.addEventListener('paste', e => {
+  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if(item){ e.preventDefault(); switchView('scan'); loadFile(item.getAsFile()); }
+});
+
+function handleTransfer(dt){
+  const file = [...(dt.files || [])].find(f => f.type.startsWith('image/'));
+  if(file) return loadFile(file);
+  // Kéo ảnh trực tiếp từ một trang web khác: trình duyệt chỉ gửi URL, không gửi file
+  const url = (dt.getData('text/uri-list') || dt.getData('text/plain') || '').split('\n')[0].trim();
+  if(/^(https?:|data:image)/.test(url)) return loadUrl(url);
+  setStatus('Không nhận được tệp ảnh. Hãy lưu ảnh về máy rồi kéo vào.', undefined, 'warn');
+}
+function loadUrl(url){
+  setStatus('Đang tải ảnh...', undefined, 'busy');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => setImage(fitImage(img));
+  img.onerror = () => setStatus('Không đọc được ảnh từ trang này. Hãy lưu ảnh về máy rồi chọn lại.', undefined, 'err');
+  img.src = url;
+}
+function loadFile(file){
+  if(!file || !file.type.startsWith('image/')) return setStatus('Tệp không phải ảnh.', undefined, 'err');
+  const img = new Image();
+  img.onload = () => { setImage(fitImage(img)); URL.revokeObjectURL(img.src); };
+  img.onerror = () => setStatus('Không đọc được ảnh này.', undefined, 'err');
+  img.src = URL.createObjectURL(file);
+}
+// Ảnh camera điện thoại (~12MP) quá lớn: thu nhỏ cạnh dài về 2400px để Safari iOS không hết bộ nhớ, OCR vẫn đủ nét
+function fitImage(img){
+  const MAX = 2400, w = imgW(img), h = imgH(img), s = MAX / Math.max(w, h);
+  if(s >= 1) return img;
+  const c = document.createElement('canvas'); c.width = Math.round(w * s); c.height = Math.round(h * s);
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+let originalImage = null;
+function setImage(img, isOriginal = true){
+  if(isOriginal) originalImage = img;
+  currentImage = img; cropPts = null;
+  $('preview').classList.remove('crop'); setCropLabel('Làm thẳng thẻ'); cropHint();
+  viewer.classList.add('has-image'); showTab('orig');
+  drawOrig(); preprocess();
+  $('imgMeta').textContent = `${imgW(img)} × ${imgH(img)} px` + (isOriginal ? '' : ' · đã căn chỉnh');
+  $('ocrBtn').disabled = false; $('cropBtn').disabled = false; $('resetImgBtn').disabled = isOriginal;
+  setStep(isOriginal ? 2 : 3);
+  if(isOriginal) setStatus('Ảnh đã sẵn sàng.', 0, 'info');
+  else setStatus('Đã làm thẳng thẻ.', 0, 'ok');
+}
+
+/* ============ LÀM THẲNG THẺ: biến đổi phối cảnh (perspective / homography) ============ */
+// Ảnh chụp nghiêng làm chữ bị méo → Tesseract gần như không đọc được.
+// Người dùng chọn 4 góc thẻ, ta “kéo” tứ giác đó về hình chữ nhật thẳng (giống app CamScanner).
+let cropPts = null;
+const CORNERS = ['trên-trái', 'trên-phải', 'dưới-phải', 'dưới-trái'];
+const setCropLabel = t => $('cropBtn').querySelector('span').textContent = t;
+
+function drawOrig(){
+  const o = $('origCv'), g = ctx2d(o);
+  o.width = imgW(currentImage); o.height = imgH(currentImage);
+  g.drawImage(currentImage, 0, 0);
+  if(!cropPts || !cropPts.length) return;
+  // kích thước điểm đánh dấu theo kích thước HIỂN THỊ (ảnh lớn bị thu nhỏ trên điện thoại)
+  const shown = o.getBoundingClientRect().width || o.width;
+  const r = Math.max(4, 7 * o.width / shown);
+  g.lineWidth = r / 2.2; g.strokeStyle = '#2BB596'; g.fillStyle = 'rgba(43,181,150,.16)';
+  g.beginPath(); cropPts.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y));
+  if(cropPts.length === 4) g.closePath();
+  g.fill(); g.stroke();
+  g.font = `600 ${r * 1.5}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  cropPts.forEach(([x, y], k) => {
+    g.fillStyle = '#0E6E5C'; g.beginPath(); g.arc(x, y, r * 1.35, 0, 7); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = r / 3; g.stroke();
+    g.fillStyle = '#fff'; g.fillText(k + 1, x, y + 1);
+  });
+}
+function cropHint(){
+  $('cropHint').innerHTML = cropPts ? `<b>${cropPts.length + 1}/4</b>Chạm góc ${CORNERS[cropPts.length]} của thẻ` : '';
+}
+$('cropBtn').onclick = () => {
+  if(cropPts){ cropPts = null; $('preview').classList.remove('crop'); setCropLabel('Làm thẳng thẻ'); drawOrig(); cropHint(); return; }
+  cropPts = []; showTab('orig'); $('preview').classList.add('crop'); setCropLabel('Hủy chọn góc'); cropHint();
+};
+$('resetImgBtn').onclick = () => originalImage && setImage(originalImage, true);
+$('origCv').addEventListener('click', e => {
+  if(!cropPts) return;
+  const cv = $('origCv'), b = cv.getBoundingClientRect();
+  cropPts.push([(e.clientX - b.left) * cv.width / b.width, (e.clientY - b.top) * cv.height / b.height]);
+  drawOrig(); cropHint();
+  if(cropPts.length === 4){ const q = cropPts; $('cropHint').innerHTML = 'Đang căn chỉnh phối cảnh...'; setTimeout(() => setImage(warp(q), false), 60); }
+});
+
+// Giải hệ phương trình tuyến tính Ax = b (khử Gauss có chọn phần tử trụ)
+function solveLinear(A, b){
+  const n = b.length;
+  for(let i = 0; i < n; i++){
+    let p = i; for(let r = i + 1; r < n; r++) if(Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+    for(let r = i + 1; r < n; r++){ const f = A[r][i] / A[i][i]; for(let c = i; c < n; c++) A[r][c] -= f * A[i][c]; b[r] -= f * b[i]; }
+  }
+  const x = new Array(n);
+  for(let i = n - 1; i >= 0; i--){ let s = b[i]; for(let c = i + 1; c < n; c++) s -= A[i][c] * x[c]; x[i] = s / A[i][i]; }
+  return x;
+}
+// Ma trận homography 3x3 (8 ẩn) ánh xạ 4 điểm `from` sang 4 điểm `to`
+function homography(from, to){
+  const A = [], b = [];
+  for(let i = 0; i < 4; i++){
+    const [x, y] = from[i], [u, v] = to[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  return solveLinear(A, b);
+}
+function warp(q){
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const w0 = Math.max(dist(q[0], q[1]), dist(q[3], q[2])), h0 = Math.max(dist(q[0], q[3]), dist(q[1], q[2]));
+  const W = 1800, H = Math.round(W * h0 / w0);
+  const h = homography([[0, 0], [W, 0], [W, H], [0, H]], q);   // ảnh đích → ảnh gốc (ánh xạ ngược)
+  const src = document.createElement('canvas'); src.width = imgW(originalImage); src.height = imgH(originalImage);
+  const sg = ctx2d(src); sg.drawImage(originalImage, 0, 0);
+  const sw = src.width, sh = src.height, sd = sg.getImageData(0, 0, sw, sh).data;
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const og = ctx2d(out), im = og.createImageData(W, H), d = im.data;
+  for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
+    const den = h[6] * x + h[7] * y + 1;
+    const sx = (h[0] * x + h[1] * y + h[2]) / den, sy = (h[3] * x + h[4] * y + h[5]) / den;
+    const x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0, o = (y * W + x) * 4;
+    d[o + 3] = 255;
+    if(x0 < 0 || y0 < 0 || x0 + 1 >= sw || y0 + 1 >= sh){ d[o] = d[o + 1] = d[o + 2] = 255; continue; }
+    const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4;
+    for(let c = 0; c < 3; c++)   // nội suy song tuyến (bilinear) cho chữ mượt
+      d[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+  }
+  og.putImageData(im, 0, 0);
+  return out;
+}
+
+/* ============ TIỀN XỬ LÝ ẢNH (tối ưu OCR) ============ */
+function preprocess(){
+  if(!currentImage) return;
+  const src = currentImage, dst = $('procCv');
+  // Chuẩn hóa kích thước: chữ quá nhỏ hoặc ảnh quá lớn đều làm OCR kém/chậm
+  const target = Math.min(2000, Math.max(1200, imgW(src)));
+  const scale = target / imgW(src);
+  dst.width = Math.round(imgW(src) * scale); dst.height = Math.round(imgH(src) * scale);
+  const ctx = ctx2d(dst);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, dst.width, dst.height);
+  if(!$('pre').checked && !$('bin').checked) return;
+
+  const im = ctx.getImageData(0, 0, dst.width, dst.height), d = im.data;
+  const gray = new Uint8ClampedArray(d.length / 4);
+  let min = 255, max = 0;
+  for(let i = 0, j = 0; i < d.length; i += 4, j++){
+    const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    gray[j] = g; if(g < min) min = g; if(g > max) max = g;
+  }
+  // Kéo giãn tương phản (contrast stretching)
+  const range = Math.max(1, max - min);
+  for(let j = 0; j < gray.length; j++) gray[j] = (gray[j] - min) * 255 / range;
+
+  let thr = -1;
+  if($('bin').checked) thr = otsu(gray);
+  for(let i = 0, j = 0; i < d.length; i += 4, j++){
+    const v = thr >= 0 ? (gray[j] > thr ? 255 : 0) : gray[j];
+    d[i] = d[i+1] = d[i+2] = v;
+  }
+  ctx.putImageData(im, 0, 0);
+}
+// Thuật toán Otsu: tự tìm ngưỡng tách chữ / nền tối ưu
+function otsu(gray){
+  const hist = new Array(256).fill(0);
+  for(const v of gray) hist[v|0]++;
+  const total = gray.length; let sum = 0;
+  for(let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0, wB = 0, best = 0, thr = 127;
+  for(let t = 0; t < 256; t++){
+    wB += hist[t]; if(!wB) continue;
+    const wF = total - wB; if(!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) ** 2;
+    if(between > best){ best = between; thr = t; }
+  }
+  return thr;
+}
+$('pre').onchange = () => { preprocess(); showTab('proc'); };
+$('bin').onchange = () => { preprocess(); showTab('proc'); };
+
+/* ============ BƯỚC 2: OCR ============ */
+const ENGINE_MSG = {
+  'loading tesseract core': 'Đang tải lõi OCR',
+  'initializing tesseract': 'Đang khởi tạo Tesseract',
+  'loading language traineddata': 'Đang tải dữ liệu ngôn ngữ Việt + Anh',
+  'initializing api': 'Đang khởi tạo API'
+};
+let worker = null, ocrPass = '';
+async function getWorker(){
+  if(worker) return worker;
+  setEngine('loading', 'OCR đang tải');
+  setStatus('Đang tải mô hình OCR...', 0.05, 'busy');
+  try{
+    worker = await Tesseract.createWorker('vie+eng', 1, {
+      logger: m => {
+        if(m.status === 'recognizing text') setStatus(`Đang nhận dạng ký tự${ocrPass}... ${Math.round(m.progress * 100)}%`, m.progress, 'busy');
+        else if(m.status) setStatus((ENGINE_MSG[m.status] || m.status) + '...', m.progress ?? 0, 'busy');
+      }
+    });
+  }catch(e){ setEngine('error', 'OCR lỗi'); throw e; }
+  setEngine('ready', 'OCR sẵn sàng');
+  return worker;
+}
+
+$('ocrBtn').onclick = async () => {
+  if(typeof Tesseract === 'undefined'){
+    setEngine('error', 'OCR mất mạng');
+    return setStatus('Không tải được OCR — cần kết nối Internet.', undefined, 'err');
+  }
+  $('ocrBtn').disabled = true;
+  const t0 = performance.now();
+  try{
+    const w = await getWorker();
+    // Page Segmentation Mode (PSM): cách Tesseract chia bố cục trang.
+    // "Tự động" chạy thử PSM 4 (một cột) và PSM 11 (chữ rải rác), giữ kết quả bóc tách được nhiều trường nhất.
+    const modes = $('psm').value === 'auto' ? ['4', '11'] : [$('psm').value];
+    let best = null;
+    for(const [k, m] of modes.entries()){
+      ocrPass = modes.length > 1 ? ` (lượt ${k + 1}/${modes.length} · PSM ${m})` : '';
+      await w.setParameters({ tessedit_pageseg_mode: m });
+      const { data } = await w.recognize($('procCv'));
+      const parsed = parseCard(data.text);
+      const score = countFields(parsed) * 10 + data.confidence / 10;
+      if(!best || score > best.score) best = { data, parsed, score, m };
+    }
+    $('raw').value = best.data.text.trim();
+    applyParsed(best.parsed);
+    const found = countFields(best.parsed);
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    $('rawMeta').textContent = `${best.data.text.trim().split('\n').filter(Boolean).length} dòng · tin cậy ${Math.round(best.data.confidence)}% · PSM ${best.m}`;
+    if(found < 2) setStatus('Không đọc được thông tin — hãy dùng “Làm thẳng thẻ” rồi chạy lại.', 1, 'warn');
+    else { setStatus(`Hoàn tất ${secs}s · ${found}/7 trường · tin cậy ${Math.round(best.data.confidence)}%`, 1, 'ok'); setStep(4); }
+  }catch(err){
+    console.error(err);
+    setStatus('Lỗi OCR: ' + (err.message || err), undefined, 'err');
+  }finally{ $('ocrBtn').disabled = false; }
+};
+const countFields = p => ['name','title','company','phone','email','website','address'].filter(k => p[k]).length;
+$('reparseBtn').onclick = () => { applyParsed(parseCard($('raw').value)); toast('Đã trích xuất lại từ văn bản'); };
+
+/* ============ BƯỚC 3: BÓC TÁCH THÔNG TIN ============ */
+const RE = {
+  email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,
+  // Tối đa 1 ký tự phân cách giữa các chữ số → không gộp nhầm 2 số "0967.977.629 - 0987.967.494"
+  phone: /(?:\+?\s?84|0)(?:[\s.\-]?\d){9,10}(?!\d)/g,
+  phoneIntl: /\+\s?\d{1,3}[\s.\-]?\(?\d{1,4}\)?(?:[\s.\-]?\d{2,4}){2,4}/,
+  web: /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com\.vn|edu\.vn|gov\.vn|com|vn|net|org|io|asia|biz)\b(?:\/\S*)?/i,
+  // 3 mẫu dưới viết KHÔNG DẤU và được so khớp trên chuỗi đã bỏ dấu (fold),
+  // để vẫn nhận ra khi OCR đọc sai dấu, VD "Giám đóc" thay vì "Giám đốc".
+  company: /(cong\s*ty|\bcty\b|tnhh|co\s*phan|tap\s*doan|\bjsc\b|co\.?,?\s*ltd|corp|company|group|holdings|\binc\b|\bltd\b|showroom|cua\s*hang|\bshop\b|\bstore\b|dai\s*ly|trung\s*tam|\bstudio\b|\bagency\b)/i,
+  title: /(giam\s*doc|truong\s*phong|truong\s*nhom|pho\s*phong|quan\s*ly|chuyen\s*vien|nhan\s*vien|ky\s*su|ke\s*toan|tu\s*van|founder|\bceo\b|\bcto\b|\bcfo\b|\bcoo\b|director|manager|engineer|developer|sales|marketing|executive|officer|leader|consultant|specialist|assistant)/i,
+  address: /(\bso\s*\d|\bduong\b|\bpho\b|phuong|\bquan\s*\d|\bquan\b|huyen|\btp\b|thanh\s*pho|\btinh\b|street|\bst\.|road|ward|district|\bcity\b|ha\s*noi|ho\s*chi\s*minh|da\s*nang|can\s*tho|hai\s*phong)/i,
+  // nhãn chấp nhận cả khi OCR mất dấu: "Địa chi", "Dia chi", "Dien thoai"...
+  label: /^(tel|phone|mobile|mob|hotline|[đd]t|[đd]i[eệ]n\s*tho[aạ]i|s[đd]t|e-?mail|web(site)?|[đd][iị]a\s*ch[iỉ]|add(ress)?|[đd]c|fax)\s*[:.]?\s*/i
+};
+const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+const stripLabel = s => s.replace(RE.label, '').replace(/^[\s:|•\-]+|[\s:|•\-]+$/g, '');
+
+// Số VN → dạng 0xxxxxxxxx ; số quốc tế (không phải +84) → giữ dạng +xxxxxxxx
+function normalizePhone(p){
+  const raw = String(p || '').trim();
+  let d = raw.replace(/\D/g, '');
+  if(d.startsWith('84') && (d.length === 11 || d.length === 12)) return '0' + d.slice(2);
+  if(raw.startsWith('+')) return '+' + d;
+  return d;
+}
+function prettyPhone(d){
+  if(/^0\d{9}$/.test(d)) return d.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3');
+  if(/^0\d{10}$/.test(d)) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1 $2 $3');
+  return d;
+}
+function formatPhone(raw){
+  const d = normalizePhone(raw);
+  if(d.startsWith('+')) return String(raw).replace(/[.\-()]/g, ' ').replace(/\s+/g, ' ').trim();
+  return prettyPhone(d);
+}
+
+// Biểu tượng ☎ ✉ 🌐 📍 trên danh thiếp hay bị OCR đọc thành rác ("Q", "&", "LL", "[=]") ở đầu/cuối dòng
+const junkHead = t => /^[^\p{L}\p{N}+]+$/u.test(t) || (t.length === 1 && !/\d/.test(t)) || /^(\p{L})\1$/u.test(t) || (t.length <= 3 && /[^\p{L}\p{N}.,]/u.test(t));
+const junkTail = t => /^[^\p{L}\p{N}]+$/u.test(t) || (t.length <= 2 && /[^\p{L}\p{N}.]/u.test(t));
+function cleanLine(l){
+  const t = l.replace(/\s+/g, ' ').trim().split(' ');
+  while(t.length > 1 && junkHead(t[0])) t.shift();
+  // mảnh logo dính trước dòng IN HOA: "1 SHOWROOM ...", "Id SHOWROOM ..."
+  const f = t[0];
+  if(t.length > 2 && f.length <= 2 && (f !== f.toUpperCase() || /\d/.test(f)) && /^\p{Lu}{3,}$/u.test(t[1])) t.shift();
+  while(t.length > 1 && junkTail(t[t.length - 1])) t.pop();
+  return t.join(' ');
+}
+
+function parseCard(text){
+  const lines = String(text).split(/\r?\n/).map(cleanLine).filter(l => l.length > 1);
+  const r = { name:'', title:'', company:'', phone:'', email:'', website:'', address:'', note:'' };
+  const used = new Set();
+  const webs = [];                                   // các ứng viên dạng tên miền
+  const phones = [];                                 // thẻ có thể in nhiều số điện thoại
+
+  lines.forEach((l, i) => {
+    // lỗi OCR hay gặp của ký tự @: "(at)", "©", "®", "l©@", "@@"
+    const fixed = l.replace(/\s*(\(at\)|\[at\])\s*/gi, '@').replace(/[l1|]?[©®]+@*|@{2,}/g, '@');
+    const em = fixed.match(RE.email);
+    if(em && !r.email){ r.email = em[0].toLowerCase(); used.add(i); }
+    const rest = fixed.replace(RE.email, ' ');
+    const ph = rest.match(RE.phoneIntl) ? [rest.match(RE.phoneIntl)[0]] : (rest.match(RE.phone) || []);
+    if(ph.length){ ph.forEach(p => phones.push(formatPhone(p))); used.add(i); }
+    const wb = rest.match(RE.web);
+    if(wb && !RE.address.test(fold(rest))) webs.push({ i, v: wb[0].toLowerCase() });
+  });
+  if(phones.length){ r.phone = phones[0]; if(phones.length > 1) r.note = 'SĐT khác: ' + phones.slice(1).join(', '); }
+
+  // OCR thường đọc "@" thành "l"/"1"/"i": "infolwebsitename.com" → dựa vào website để khôi phục "info@websitename.com"
+  if(!r.email){
+    const doms = webs.map(x => rootDomain(x.v));
+    for(const c of webs){
+      const v = rootDomain(c.v);
+      const dom = doms.find(d => d !== v && v.endsWith(d));
+      const prefix = dom ? v.slice(0, -dom.length) : '';
+      if(prefix.length >= 2 && /[l1i|]$/.test(prefix)){ r.email = prefix.slice(0, -1) + '@' + dom; c.isEmail = true; used.add(c.i); break; }
+    }
+  }
+  const sites = webs.filter(x => !x.isEmail);
+  const site = sites.find(x => /^(https?:|www\.)/.test(x.v)) || sites[0];
+  if(site){ r.website = site.v; used.add(site.i); }
+
+  const free = () => lines.map((l, i) => ({ l, i })).filter(x => !used.has(x.i));
+  const take = (key, re) => {
+    const hit = free().find(x => re.test(fold(x.l)));
+    if(hit){ r[key] = stripLabel(hit.l); used.add(hit.i); }
+    return hit;
+  };
+  take('company', RE.company);
+  take('title', RE.title);
+  const addr = take('address', RE.address);
+  // Địa chỉ thường xuống dòng: nối dòng kế tiếp nếu nó trông giống phần còn lại của địa chỉ
+  if(addr){
+    const n = addr.i + 1;
+    if(n < lines.length && !used.has(n) && !/@/.test(lines[n]) && (RE.address.test(fold(lines[n])) || /\b\d{4,6}\b/.test(lines[n]))){
+      r.address += ', ' + lines[n]; used.add(n);
+    }
+  }
+
+  // Họ tên: dòng còn lại, 2–5 từ, không chứa số, mọi từ đều viết hoa chữ cái đầu
+  let best = null, bestScore = -1;
+  free().forEach(({ l, i }) => {
+    const words = l.split(' ');
+    if(/\d|@/.test(l) || words.length < 2 || words.length > 5) return;
+    if(!words.every(w => /^\p{Lu}[\p{L}'.-]*$/u.test(w))) return;
+    let score = 10 - i;                         // ưu tiên dòng ở phía trên
+    if(l === l.toUpperCase()) score += 3;       // tên thường in hoa
+    if(words.length >= 2 && words.length <= 4) score += 2;
+    if(score > bestScore){ bestScore = score; best = { l, i }; }
+  });
+  if(best){ r.name = titleCase(best.l); used.add(best.i); }
+
+  // Không có từ khóa "Công ty/JSC/..." → đoán dòng IN HOA ngắn còn lại là tên công ty / thương hiệu
+  if(!r.company){
+    const c = free().find(({ l }) => /^[\p{Lu}][\p{Lu}&.\- ]{3,40}$/u.test(l) && l.split(' ').length <= 5);
+    if(c){ r.company = c.l; used.add(c.i); }
+  }
+  return r;
+}
+const titleCase = s => s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+
+function applyParsed(p){
+  Object.keys(p).forEach(k => { $('f_' + k).value = p[k] || ''; });
+  runKyc();
+}
+
+/* ============ BƯỚC 4: KYC ============ */
+const FREE_MAIL = ['gmail.com','yahoo.com','yahoo.com.vn','hotmail.com','outlook.com','icloud.com','live.com'];
+const rootDomain = h => h.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+
+function readForm(){ const o = {}; FIELDS.forEach(k => o[k] = $('f_' + k).value.trim()); return o; }
+
+function kycCheck(c, excludeId){
+  const out = [];
+  const add = (field, level, msg) => out.push({ field, level, msg });
+
+  // 1. Họ tên
+  if(!c.name) add('Họ tên', 'fail', 'Thiếu họ tên người liên hệ (bắt buộc).');
+  else if(/\d/.test(c.name) || c.name.split(/\s+/).length < 2) add('Họ tên', 'warn', 'Họ tên có vẻ chưa đúng (chứa số hoặc chỉ 1 từ).');
+  else add('Họ tên', 'ok', 'Hợp lệ.');
+
+  // 2. Liên hệ
+  const phone = normalizePhone(c.phone);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(c.email);
+  const intl = /^\+\d{8,15}$/.test(phone);
+  const phoneOk = intl || /^0(3|5|7|8|9)\d{8}$/.test(phone) || /^02\d{9}$/.test(phone) || /^1[89]00\d{4,6}$/.test(phone);
+  if(!c.email && !c.phone) add('Liên hệ', 'fail', 'Phải có ít nhất số điện thoại hoặc email.');
+  if(c.email) add('Email', emailOk ? 'ok' : 'fail', emailOk ? 'Đúng định dạng.' : 'Sai định dạng email.');
+  else add('Email', 'warn', 'Chưa có email.');
+  if(c.phone) add('Số điện thoại', phoneOk ? 'ok' : 'fail', phoneOk ? (intl ? 'Số quốc tế hợp lệ — khách nước ngoài.' : 'Đúng định dạng số Việt Nam.') : 'Không phải số di động/cố định Việt Nam hợp lệ.');
+  else add('Số điện thoại', 'warn', 'Chưa có số điện thoại.');
+
+  // 3. Công ty & tính nhất quán email ↔ website
+  if(!c.company) add('Công ty', 'warn', 'Chưa có tên công ty (khách B2B nên có).');
+  else add('Công ty', 'ok', 'Đã có thông tin.');
+  if(emailOk){
+    const ed = c.email.split('@')[1].toLowerCase();
+    if(FREE_MAIL.includes(ed)) add('Đối chiếu', 'warn', `Email cá nhân (${ed}) — nên xác minh thêm qua điện thoại.`);
+    else if(c.website){
+      const wd = rootDomain(c.website);
+      if(wd.endsWith(ed) || ed.endsWith(wd)) add('Đối chiếu', 'ok', 'Tên miền email khớp với website công ty.');
+      else add('Đối chiếu', 'warn', `Tên miền email (${ed}) khác website (${wd}).`);
+    }
+  }
+
+  // 4. Trùng lặp hồ sơ
+  const dup = contacts.find(x => x.id !== excludeId &&
+    ((c.email && x.email.toLowerCase() === c.email.toLowerCase()) || (phone && normalizePhone(x.phone) === phone)));
+  if(dup) add('Trùng lặp', 'warn', `Trùng SĐT/email với hồ sơ “${dup.name || '(không tên)'}” (${dup.id}).`);
+  else add('Trùng lặp', 'ok', 'Không trùng với hồ sơ đã lưu.');
+
+  const status = out.some(x => x.level === 'fail') ? 'fail' : out.some(x => x.level === 'warn') ? 'warn' : 'ok';
+  return { status, items: out };
+}
+const STATUS_TEXT = { ok:'Đạt', warn:'Cần xác minh', fail:'Không đạt' };
+const KICON = { ok:'i-check', warn:'i-alert', fail:'i-x' };
+
+function runKyc(){
+  const form = readForm(), b = $('kycBadge');
+  if(!['name','phone','email','company'].some(k => form[k])){
+    b.className = 'chip b-none ml-auto'; b.textContent = 'Chưa có dữ liệu'; $('kycScore').textContent = '';
+    $('kycList').innerHTML = '';
+    return null;
+  }
+  const res = kycCheck(form, editingId);
+  b.className = 'chip ml-auto b-' + res.status; b.textContent = STATUS_TEXT[res.status];
+  $('kycScore').textContent = `${res.items.filter(x => x.level === 'ok').length}/${res.items.length} tiêu chí đạt`;
+  $('kycList').innerHTML = res.items.map(x =>
+    `<li class="l-${x.level}"><span class="k-ic"><svg class="i"><use href="#${KICON[x.level]}"/></svg></span><b>${esc(x.field)}</b><span class="m">${esc(x.msg)}</span></li>`).join('');
+  return res;
+}
+FIELDS.forEach(k => $('f_' + k).addEventListener('input', runKyc));
+
+/* ============ BƯỚC 5: LƯU / DANH SÁCH / XUẤT ============ */
+$('saveBtn').onclick = () => {
+  const c = readForm();
+  if(c.phone) c.phone = formatPhone(c.phone);
+  if(!c.name && !c.email && !c.phone) return toast('Chưa có dữ liệu để lưu');
+  const res = kycCheck(c, editingId);
+  if(res.status === 'fail' && !confirm('Hồ sơ KHÔNG ĐẠT KYC. Vẫn lưu để xử lý sau?')) return;
+  let id = editingId;
+  if(editingId){
+    const i = contacts.findIndex(x => x.id === editingId);
+    contacts[i] = { ...contacts[i], ...c, kyc: res.status, updatedAt: new Date().toISOString() };
+  }else{
+    id = 'KH' + Date.now().toString(36).toUpperCase();
+    contacts.unshift({ id, ...c, kyc: res.status, createdAt: new Date().toISOString() });
+  }
+  persist(); clearForm(); renderTable(); setStep(6);
+  toast(`Đã lưu hồ sơ ${c.name || id} · ${STATUS_TEXT[res.status]}`);
+};
+$('clearBtn').onclick = clearForm;
+function clearForm(){
+  editingId = null; FIELDS.forEach(k => $('f_' + k).value = '');
+  $('saveLabel').textContent = 'Lưu hồ sơ'; $('editTag').textContent = ''; runKyc();
+}
+
+let statusFilter = 'all';
+const initials = n => (n || '?').trim().split(/\s+/).slice(-2).map(w => w[0]).join('').toUpperCase();
+function renderTable(){
+  const q = $('search').value.trim().toLowerCase();
+  const rows = contacts.filter(c => (statusFilter === 'all' || c.kyc === statusFilter) &&
+    (!q || [c.name, c.company, c.phone, c.email, c.title].join(' ').toLowerCase().includes(q)));
+  const n = s => contacts.filter(c => c.kyc === s).length;
+  $('t_all').textContent = contacts.length; $('navCount').textContent = contacts.length;
+  $('navCount').toggleAttribute('data-zero', !contacts.length);
+  ['ok','warn','fail'].forEach(s => $('t_' + s).textContent = n(s));
+  $('t_rate').textContent = contacts.length ? `Tỉ lệ đạt ${Math.round(n('ok') / contacts.length * 100)}%` : 'Tỉ lệ đạt —';
+  $('rowCount').textContent = `${rows.length} / ${contacts.length} hồ sơ`;
+  $('tbody').innerHTML = rows.length ? rows.map(c => {
+    const d = new Date(c.createdAt);
+    return `<tr>
+      <td><div class="who"><div class="ini">${esc(initials(c.name))}</div><div><b>${esc(c.name || '(chưa có tên)')}</b><small>${esc(c.title || '—')}</small></div></div></td>
+      <td>${esc(c.company || '—')}</td>
+      <td><span class="mono">${esc(c.phone || '—')}</span><small>${esc(c.email || '')}</small></td>
+      <td><span class="status s-${c.kyc}">${STATUS_TEXT[c.kyc]}</span></td>
+      <td><span class="mono">${d.toLocaleDateString('vi-VN')}</span><small>${d.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' })}<span class="rid"> · ${esc(c.id)}</span></small></td>
+      <td><div class="row-actions">
+        <button class="icon-btn" data-edit="${c.id}" title="Chỉnh sửa"><svg class="i"><use href="#i-edit"/></svg></button>
+        <button class="icon-btn danger" data-del="${c.id}" title="Xóa"><svg class="i"><use href="#i-trash"/></svg></button>
+      </div></td>
+    </tr>`; }).join('')
+    : `<tr class="empty-row"><td colspan="6"><b>${contacts.length ? 'Không có hồ sơ phù hợp' : 'Chưa có hồ sơ nào'}</b>${contacts.length ? 'Thử đổi bộ lọc hoặc từ khóa tìm kiếm.' : 'Số hóa danh thiếp đầu tiên tại mục “Số hóa danh thiếp”.'}</td></tr>`;
+}
+$('search').oninput = renderTable;
+document.querySelectorAll('#filter button').forEach(b => b.onclick = () => {
+  statusFilter = b.dataset.f;
+  document.querySelectorAll('#filter button').forEach(x => x.classList.toggle('active', x === b));
+  renderTable();
+});
+$('tbody').onclick = e => {
+  const btn = e.target.closest('button'); if(!btn) return;
+  const ed = btn.dataset.edit, del = btn.dataset.del;
+  if(ed){
+    const c = contacts.find(x => x.id === ed); editingId = ed;
+    FIELDS.forEach(k => $('f_' + k).value = c[k] || '');
+    $('saveLabel').textContent = 'Cập nhật hồ sơ'; $('editTag').textContent = 'Đang sửa ' + ed;
+    runKyc(); switchView('scan'); setStep(4);
+  }
+  if(del && confirm('Xóa hồ sơ này?')){ contacts = contacts.filter(x => x.id !== del); persist(); renderTable(); toast('Đã xóa hồ sơ ' + del); }
+};
+
+function download(name, content, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// Tên cột không dấu để Google Sheets / AppSheet nhận diện ổn định
+const CSV_COLS = [['ID','id'],['HoTen','name'],['ChucDanh','title'],['CongTy','company'],['SoDienThoai','phone'],
+  ['Email','email'],['Website','website'],['DiaChi','address'],['GhiChu','note'],['TrangThaiKYC','kyc'],['NgayTao','createdAt']];
+$('csvBtn').onclick = () => {
+  if(!contacts.length) return toast('Chưa có dữ liệu để xuất');
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [CSV_COLS.map(c => c[0]).join(',')].concat(contacts.map(c =>
+    CSV_COLS.map(([, k]) => cell(k === 'kyc' ? STATUS_TEXT[c.kyc] : c[k])).join(',')));
+  download('khach_hang.csv', '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+  toast(`Đã xuất ${contacts.length} hồ sơ ra khach_hang.csv`);
+};
+$('jsonBtn').onclick = () => {
+  if(!contacts.length) return toast('Chưa có dữ liệu để xuất');
+  download('khach_hang.json', JSON.stringify(contacts, null, 2), 'application/json');
+};
+
+/* ============ DANH THIẾP MẪU (để demo không cần ảnh thật) ============ */
+const SAMPLES = [
+  { company:'CÔNG TY TNHH GIẢI PHÁP SỐ ÁNH DƯƠNG', name:'NGUYỄN VĂN AN', title:'Giám đốc Kinh doanh',
+    phone:'0903 456 789', email:'an.nguyen@anhduongtech.vn', web:'www.anhduongtech.vn', addr:'Số 12 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh' },
+  { company:'CÔNG TY CỔ PHẦN LOGISTICS BIỂN XANH', name:'TRẦN THỊ BÍCH NGỌC', title:'Trưởng phòng Nhân sự',
+    phone:'+84 912 345 678', email:'ngoc.tran@bienxanh.com.vn', web:'bienxanh.com.vn', addr:'45 Đường Lê Duẩn, Quận Hải Châu, Đà Nẵng' },
+  { company:'GREEN FARM AGRI JSC', name:'LÊ MINH KHOA', title:'Sales Manager',
+    phone:'0987.654.321', email:'khoa.le.greenfarm@gmail.com', web:'www.greenfarm.vn', addr:'78 Đường 3/2, Quận Ninh Kiều, TP. Cần Thơ' }
+];
+let sampleIdx = 0;
+function genSample(){
+  const s = SAMPLES[sampleIdx++ % SAMPLES.length];
+  const cv = document.createElement('canvas'); cv.width = 1050; cv.height = 600;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 1050, 600);
+  g.fillStyle = '#0E6E5C'; g.fillRect(0, 0, 22, 600); g.fillRect(60, 120, 120, 6);
+  g.fillStyle = '#16181D';
+  g.font = 'bold 32px Arial'; g.fillText(s.company, 60, 95);
+  g.font = 'bold 54px Arial'; g.fillText(s.name, 60, 215);
+  g.font = '34px Arial'; g.fillStyle = '#4A4F5A'; g.fillText(s.title, 60, 265);
+  g.fillStyle = '#16181D'; g.font = '30px Arial';
+  g.fillText('Tel: ' + s.phone, 60, 375);
+  g.fillText('Email: ' + s.email, 60, 425);
+  g.fillText('Web: ' + s.web, 60, 475);
+  g.font = '26px Arial'; g.fillText('Địa chỉ: ' + s.addr, 60, 535);
+  const img = new Image();
+  img.onload = () => setImage(img);
+  img.src = cv.toDataURL('image/png');
+}
+$('sampleBtn').onclick = $('sampleBtn2').onclick = genSample;
+
+/* ============ KHỞI TẠO ============ */
+renderTable(); runKyc(); setStep(1);
+try{ const v = localStorage.getItem('cardscan_view'); if(v && VIEW_TITLE[v]) switchView(v); }catch(e){}
+</script>
+</body>
+</html>
