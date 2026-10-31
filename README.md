@@ -1,68 +1,119 @@
-# CardScan KYC — Demo phỏng vấn Thực tập sinh CNTT
+# CardScan KYC
 
-Ứng dụng số hóa **danh thiếp** bằng **OCR**, tự bóc tách thông tin, kiểm tra **KYC** và xuất dữ liệu sang
-**Google Sheets / AppSheet**. Bám sát mô tả công việc: name card · OCR · KYC · AppSheet · JavaScript · Python · thiết kế web.
+Công cụ số hóa danh thiếp chạy trên trình duyệt: nhận dạng ký tự (OCR) từ ảnh danh thiếp, tự động trích xuất thông tin liên hệ, kiểm tra tính hợp lệ của hồ sơ (KYC) và xuất dữ liệu sang Google Sheets / AppSheet.
 
-| Yêu cầu trong JD | Thể hiện trong demo |
+**Dùng trực tuyến:** https://nhanhuutran007.github.io/cardscan/
+
+## Tính năng
+
+**Nhận dạng danh thiếp**
+- Chụp ảnh trực tiếp bằng camera điện thoại, chọn ảnh từ máy, kéo thả hoặc dán bằng `Ctrl + V`
+- OCR tiếng Việt và tiếng Anh bằng Tesseract.js, xử lý ngay trên trình duyệt, ảnh không được gửi lên máy chủ
+- **Làm thẳng thẻ**: chọn 4 góc danh thiếp trên ảnh chụp nghiêng, công cụ tự hiệu chỉnh phối cảnh về hình chữ nhật
+- Tiền xử lý ảnh: chuyển xám, tăng tương phản, nhị phân hóa Otsu
+- Tự thử nhiều chế độ phân tích bố cục (PSM) và giữ kết quả tốt nhất
+
+**Trích xuất thông tin**
+- Tự điền họ tên, chức danh, công ty, số điện thoại, email, website, địa chỉ
+- Hỗ trợ số điện thoại Việt Nam và quốc tế; thẻ có nhiều số điện thoại
+- Chịu được các lỗi OCR thường gặp: mất dấu tiếng Việt, ký tự `@` bị đọc sai, ký tự rác từ biểu tượng trên thẻ
+
+**Kiểm tra KYC**
+- Kiểm tra trường bắt buộc, định dạng email và số điện thoại
+- Đối chiếu tên miền email với website công ty, cảnh báo email cá nhân (Gmail, Yahoo...)
+- Phát hiện hồ sơ trùng lặp theo số điện thoại hoặc email
+- Phân loại hồ sơ: **Đạt** · **Cần xác minh** · **Không đạt**
+
+**Quản lý hồ sơ**
+- Danh sách hồ sơ với thống kê, bộ lọc theo trạng thái và tìm kiếm
+- Chỉnh sửa, xóa hồ sơ
+- Xuất CSV (UTF-8, tên cột không dấu) tương thích Google Sheets / AppSheet, hoặc xuất JSON
+
+## Công nghệ
+
+| Thành phần | Công nghệ |
 |---|---|
-| Xử lý, chỉnh sửa thông tin danh thiếp | Form chỉnh sửa sau OCR, sửa/xóa hồ sơ đã lưu |
-| Vận hành & tối ưu OCR | Tesseract.js (Việt + Anh), tiền xử lý ảnh (xám, tăng tương phản, Otsu), chọn chế độ bố cục (PSM) |
-| KYC: kiểm tra, xác thực, đối chiếu | Kiểm tra trường bắt buộc, định dạng SĐT VN/email, đối chiếu tên miền email ↔ website, phát hiện trùng |
-| AppSheet, tự động hóa | Xuất CSV đúng chuẩn → Google Sheets → AppSheet |
-| Xử lý lỗi dữ liệu | `kyc_check.py` làm sạch & báo cáo lỗi hàng loạt |
-| JavaScript, Python, Thiết kế web | `index.html` (HTML/CSS/JS thuần, responsive, dark mode) + `kyc_check.py` |
+| Giao diện | HTML, CSS, JavaScript thuần — không framework, một tệp duy nhất |
+| OCR | [Tesseract.js](https://github.com/naptha/tesseract.js) 5 (`vie` + `eng`) |
+| Xử lý ảnh | Canvas API — biến đổi phối cảnh (homography), nội suy song tuyến, ngưỡng Otsu |
+| Xử lý dữ liệu hàng loạt | Python 3 (chỉ thư viện chuẩn) |
+| Lưu trữ | `localStorage` của trình duyệt |
 
 ## Cấu trúc
 
 ```
-index.html           Ứng dụng web (một file duy nhất)
-kyc_check.py         Script Python: chuẩn hóa, kiểm tra KYC, phát hiện trùng, xuất file sạch
-sample_contacts.csv  Dữ liệu mẫu có cố ý chèn lỗi để demo script Python
+index.html           Ứng dụng web
+kyc_check.py         Script kiểm tra & làm sạch dữ liệu CSV hàng loạt
+sample_contacts.csv  Dữ liệu mẫu để chạy thử script
 ```
 
-## Cách chạy
+## Chạy trên máy
 
 ```bash
-# Web app (cần Internet ở lần đầu để tải Tesseract.js + dữ liệu tiếng Việt)
+git clone https://github.com/nhanhuutran007/cardscan.git
+cd cardscan
 python -m http.server 8765
-# mở http://localhost:8765
-
-# Script Python (chỉ dùng thư viện chuẩn)
-python kyc_check.py sample_contacts.csv
 ```
 
-> **Trước buổi phỏng vấn:** mở app và chạy OCR một lần để trình duyệt cache mô hình tiếng Việt.
-> Mang theo 2–3 danh thiếp thật. Nếu mất mạng: dán văn bản vào ô "Văn bản thô" → "Bóc tách lại" vẫn chạy được.
+Mở `http://localhost:8765`. Lần đầu sử dụng cần kết nối Internet để tải mô hình OCR, các lần sau trình duyệt dùng bản đã lưu.
 
-## Kịch bản demo (~5 phút)
+## Hướng dẫn sử dụng
 
-1. **Giới thiệu bài toán (30s):** "Công ty nhận nhiều danh thiếp, nhập tay thì chậm và dễ sai. Em làm công cụ số hóa + kiểm tra dữ liệu trước khi đưa vào AppSheet."
-2. **Danh thiếp mẫu → Chạy OCR (1 phút):** nói về tiền xử lý ảnh và vì sao chọn PSM 4 (danh thiếp có nhiều cỡ chữ; chế độ mặc định bỏ sót dòng tên in to).
-   **Với ảnh chụp thật (thẻ nghiêng, có nền bàn):** chạy OCR ngay sẽ gần như không ra gì. Bấm **✂ Làm thẳng thẻ**,
-   chọn 4 góc theo thứ tự trên-trái → trên-phải → dưới-phải → dưới-trái (theo chiều đọc chữ), rồi chạy OCR.
-   Kể lại được "trước/sau" là điểm cộng lớn: *biến đổi phối cảnh (homography) giải hệ 8 phương trình, nội suy bilinear*.
-3. **Bóc tách + KYC (1 phút):** chỉ ra các trường tự điền, sửa tay một lỗi dấu, KYC cập nhật ngay khi gõ.
-4. **Thẻ thứ 3 (Gmail):** KYC báo "Cần xác minh" vì email cá nhân, đúng tinh thần đối chiếu hồ sơ.
-5. **Quét lại thẻ cũ:** hệ thống cảnh báo **trùng lặp**.
-6. **Quét danh thiếp thật** nhà tuyển dụng đưa (ấn tượng nhất!).
-7. **Xuất CSV → Python:** chạy `kyc_check.py` để thấy báo cáo lỗi hàng loạt và file `_cleaned.csv`.
-8. **Kết nối AppSheet:** trình bày các bước bên dưới (hoặc làm sẵn app AppSheet để mở cho xem).
+1. **Tải ảnh** — chụp hoặc chọn ảnh danh thiếp. Có thể dùng **Thẻ mẫu** để thử nhanh.
+2. **Làm thẳng thẻ** *(khi ảnh chụp nghiêng hoặc có nền xung quanh)* — chạm lần lượt 4 góc thẻ theo thứ tự trên-trái → trên-phải → dưới-phải → dưới-trái.
+3. **Chạy nhận dạng** — các trường thông tin được điền tự động.
+4. **Kiểm tra KYC** — rà soát và chỉnh sửa thông tin; kết quả kiểm tra cập nhật ngay khi gõ.
+5. **Lưu hồ sơ** — hồ sơ xuất hiện trong mục *Hồ sơ khách hàng*.
 
-## Đưa dữ liệu vào AppSheet
+## Kiểm tra dữ liệu hàng loạt (Python)
 
-1. Google Sheets → *Tệp > Nhập* → tải `khach_hang.csv` (hoặc `*_cleaned.csv`).
-2. *Tiện ích mở rộng > AppSheet > Tạo ứng dụng*. AppSheet tự nhận các cột `HoTen`, `SoDienThoai`, `Email`...
-3. Trong AppSheet: đặt `ID` làm Key; kiểu cột `SoDienThoai` = Phone, `Email` = Email, `TrangThaiKYC` = Enum (Đạt / Cần xác minh / Không đạt).
-4. Thêm cột `AnhDanhThiep` kiểu **Image** để nhân viên chụp thẻ ngay trên điện thoại.
-5. Tạo **Slice** "Cần xác minh" + **Automation (Bot)** gửi email nhắc người phụ trách khi có hồ sơ mới cần xác minh.
+```bash
+python kyc_check.py khach_hang.csv
+```
 
-## Câu hỏi có thể gặp & gợi ý trả lời
+Script chuẩn hóa số điện thoại, họ tên, email; kiểm tra định dạng; phát hiện hồ sơ trùng; in báo cáo và ghi tệp `khach_hang_cleaned.csv`.
 
-- **Vì sao OCR chạy trên trình duyệt?** Ảnh danh thiếp là dữ liệu cá nhân, xử lý tại máy nên không gửi lên server, không tốn chi phí API.
-- **OCR sai thì sao?** Có nhiều lớp: làm thẳng thẻ bằng biến đổi phối cảnh, tiền xử lý ảnh, tự thử nhiều chế độ PSM và giữ kết quả tốt nhất,
-  so khớp từ khóa không phân biệt dấu (chịu được "Giám đóc"), lọc ký tự rác do icon ☎ ✉ 📍, khôi phục email khi OCR đọc `@` thành `l`
-  (dựa vào tên miền website trên cùng thẻ), và cuối cùng là bước người kiểm tra lại trước khi lưu.
-- **Vì sao không tự động tìm 4 góc?** Có thể làm bằng OpenCV.js (phát hiện cạnh + contour), nhưng chọn tay 4 góc ổn định hơn với nền phức tạp. Đây là hướng cải tiến tiếp theo.
-- **Bóc tách trường bằng cách nào?** Regex cho email/SĐT/website, từ khóa cho công ty/chức danh/địa chỉ, chấm điểm heuristic cho họ tên.
-- **Nếu làm tiếp sẽ cải thiện gì?** Google Cloud Vision / Document AI cho độ chính xác cao hơn; dùng LLM để bóc tách trường; Apps Script ghi thẳng vào Sheets thay vì xuất CSV; đối chiếu mã số thuế công ty với cổng thông tin doanh nghiệp.
-- **Hạn chế hiện tại?** Danh thiếp bố cục phức tạp, chữ nghệ thuật, nền tối thì OCR kém hơn; dữ liệu lưu ở localStorage (chỉ phục vụ demo).
+```
+=== BÁO CÁO KYC: sample_contacts.csv ===
+Tổng hồ sơ     : 6
+Đạt            : 1
+Cần xác minh   : 3
+Không đạt      : 2
+Hồ sơ bị trùng : 4
+```
+
+## Đồng bộ với Google AppSheet
+
+1. Xuất CSV từ mục *Hồ sơ khách hàng* (nên chạy `kyc_check.py` trước để làm sạch).
+2. Google Sheets → **Tệp › Nhập** → tải tệp CSV lên.
+3. **Tiện ích mở rộng › AppSheet › Tạo ứng dụng**.
+4. Cấu hình cột:
+
+| Cột | Kiểu AppSheet | Ghi chú |
+|---|---|---|
+| `ID` | Text (Key) | Mã hồ sơ |
+| `HoTen` | Name | |
+| `ChucDanh` | Text | |
+| `CongTy` | Text | |
+| `SoDienThoai` | Phone | Đã chuẩn hóa |
+| `Email` | Email | |
+| `Website` | Url | |
+| `DiaChi` | Address | |
+| `GhiChu` | LongText | Số điện thoại phụ, nguồn |
+| `TrangThaiKYC` | Enum | Đạt · Cần xác minh · Không đạt |
+| `NgayTao` | DateTime | |
+
+5. *(Tùy chọn)* Tạo Slice lọc `TrangThaiKYC = "Cần xác minh"` và Bot gửi email nhắc người phụ trách khi có hồ sơ mới.
+
+## Giới hạn
+
+- Độ chính xác OCR giảm với danh thiếp chữ nghệ thuật, nền tối hoặc bố cục phức tạp — luôn rà soát thông tin trước khi lưu.
+- Thẻ không có tên người liên hệ (thẻ cửa hàng) có thể bị nhận nhầm tên thương hiệu thành họ tên.
+- Dữ liệu lưu cục bộ trên từng trình duyệt, không đồng bộ giữa các thiết bị.
+
+## Hướng phát triển
+
+- Tự động phát hiện 4 góc danh thiếp (OpenCV.js)
+- Ghi trực tiếp vào Google Sheets qua Apps Script thay cho xuất CSV
+- Tích hợp Google Cloud Vision / Document AI để tăng độ chính xác
+- Đối chiếu mã số thuế doanh nghiệp với cổng thông tin quốc gia
