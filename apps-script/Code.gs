@@ -17,7 +17,7 @@
  *   Lấy khóa API miễn phí tại https://aistudio.google.com/apikey
  *   Cài đặt dự án (biểu tượng bánh răng) → Thuộc tính tập lệnh → Thêm:
  *        GEMINI_API_KEY = <khóa API>
- *        GEMINI_MODEL   = gemini-flash-latest   (không bắt buộc)
+ *        GEMINI_MODEL   = gemini-flash-lite-latest   (không bắt buộc)
  *   Sau đó Triển khai → Quản lý các bản triển khai → Chỉnh sửa → Phiên bản mới.
  */
 
@@ -136,7 +136,7 @@ function getSheet_() {
 
 /* ===================== Nhận dạng danh thiếp bằng Gemini ===================== */
 
-const GEMINI_DEFAULT_MODEL = 'gemini-flash-latest';   // bí danh luôn trỏ tới bản Flash mới nhất
+const GEMINI_DEFAULT_MODEL = 'gemini-flash-lite-latest';   // bản Flash-Lite mới nhất: nhanh (~2 giây), đủ chính xác cho danh thiếp
 
 const CARD_SCHEMA = {
   type: 'OBJECT',

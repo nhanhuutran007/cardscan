@@ -126,7 +126,7 @@ CardScan ──POST JSON──▶ Apps Script (ứng dụng web) ──▶ Googl
 1. Lấy khóa API tại [Google AI Studio](https://aistudio.google.com/apikey).
 2. Trong Apps Script: **Cài đặt dự án** (biểu tượng bánh răng) › **Thuộc tính tập lệnh** › **Thêm thuộc tính tập lệnh**:
    - `GEMINI_API_KEY` = khóa API
-   - `GEMINI_MODEL` = tên model *(không bắt buộc — mặc định `gemini-flash-latest`)*
+   - `GEMINI_MODEL` = tên model *(không bắt buộc — mặc định `gemini-flash-lite-latest`, phản hồi khoảng 2 giây)*
 3. **Triển khai › Quản lý các bản triển khai › Chỉnh sửa › Phiên bản mới** và cấp thêm quyền *kết nối với dịch vụ bên ngoài* khi được hỏi.
 4. Trong CardScan bấm **Kiểm tra kết nối** — trạng thái hiển thị `· AI` và góc trên hiện **AI Gemini**.
 
