@@ -258,6 +258,34 @@
   .modal-text{margin:0;font-size:13px;color:var(--ink-2);text-align:center}
   #shareLink{width:100%;height:38px;border:1px solid var(--line-strong);border-radius:6px;padding:0 10px;font-size:12px;background:var(--surface-2);color:var(--ink-2)}
 
+  /* ---------- Camera ---------- */
+  .cam{position:fixed;inset:0;z-index:80;background:#000;color:#fff;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+  .cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  /* Khung tỉ lệ danh thiếp (90 × 54 mm ≈ 1.65); vùng ngoài khung được làm tối */
+  .cam-frame{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:min(88vw,620px);aspect-ratio:1.65;border-radius:14px;
+    box-shadow:0 0 0 100vmax rgba(0,0,0,.55);outline:1px solid rgba(255,255,255,.3)}
+  .cam-frame i{position:absolute;width:30px;height:30px;border:3px solid #fff}
+  .cam-frame i:nth-child(1){left:-3px;top:-3px;border-right:0;border-bottom:0;border-top-left-radius:14px}
+  .cam-frame i:nth-child(2){right:-3px;top:-3px;border-left:0;border-bottom:0;border-top-right-radius:14px}
+  .cam-frame i:nth-child(3){right:-3px;bottom:-3px;border-left:0;border-top:0;border-bottom-right-radius:14px}
+  .cam-frame i:nth-child(4){left:-3px;bottom:-3px;border-right:0;border-top:0;border-bottom-left-radius:14px}
+  .cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .3s}
+  .cam-flash.go{opacity:.85;transition:none}
+  .cam-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 16px;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+  .cam-tip{flex:1;text-align:center;font-size:14.5px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .cam-btn{all:unset;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.16);cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .cam-btn .i{width:22px;height:22px}
+  .cam-btn.on{background:#fff;color:#111}
+  .cam-spacer{width:46px;height:46px;flex:none}
+  #camTorch:not([hidden]) + .cam-spacer{display:none}
+  .cam-bottom{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:24px 32px calc(30px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.65))}
+  .shutter{all:unset;width:76px;height:76px;border-radius:50%;border:4px solid #fff;display:grid;place-items:center;cursor:pointer;box-sizing:border-box}
+  .shutter::after{content:"";width:60px;height:60px;border-radius:50%;background:#fff;transition:transform .12s}
+  .shutter:active::after{transform:scale(.86)}
+  .shutter:disabled{opacity:.35;cursor:default}
+  .cam-error{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);text-align:center;z-index:2}
+  .cam-error p{margin:0 0 16px;font-size:14.5px;line-height:1.55}
+
   /* ---------- Toast ---------- */
   .toast{position:fixed;right:24px;bottom:24px;background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;display:flex;gap:10px;align-items:center;box-shadow:0 12px 32px rgba(0,0,0,.22);transform:translateY(16px);opacity:0;transition:.2s;pointer-events:none;z-index:50;max-width:420px}
   .toast.show{transform:none;opacity:1}
@@ -318,7 +346,7 @@
     .step.current .t{display:block}
 
     .ws{grid-template-columns:minmax(0,1fr);gap:12px}
-    .panel{border-radius:10px}
+    .panel{border-radius:10px;scroll-margin-top:62px}
     .panel-h{padding:10px 12px;min-height:50px}
     #imgMeta{display:none}
     .viewer{min-height:240px;padding:14px 10px}
@@ -332,12 +360,12 @@
     .viewer:has(#preview.crop){padding:52px 4px 12px}   /* chừa chỗ cho hướng dẫn, ảnh rộng tối đa để chạm góc chính xác */
 
     #viewer:not(.has-image) + .toolbar{display:none}
-    .toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px}
-    .toolbar .btn{padding:0 8px}
-    #cropBtn{grid-column:1/-1;order:-1;background:var(--ink);border-color:var(--ink);color:#fff}
-    #cropBtn:disabled{opacity:.45}
+    .toolbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:10px 12px}
+    .toolbar .btn{padding:0 6px;gap:5px;grid-column:span 2}
+    .toolbar #recamBtn{grid-column:1/-1;order:-1}
     .vsep{display:none}
     .switch{height:42px;justify-content:center;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
+    .toolbar .switch{grid-column:span 3}
     .sel-wrap{margin:0;grid-column:1/-1}
     .sel{width:100%;height:42px;font-size:14px}
     .statusbar{padding:10px 12px;font-size:13px}
@@ -426,7 +454,8 @@
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
-  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
+  <symbol id="i-flash" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+  <symbol id="i-qr"viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
   <symbol id="i-cloud"viewBox="0 0 24 24"><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9M16 16l-4-4-4 4"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
   <symbol id="i-camera"viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
@@ -508,6 +537,7 @@
               <div class="crop-hint" id="cropHint"></div>
             </div>
             <div class="toolbar">
+              <button class="btn sm primary mob-only" id="recamBtn"><svg class="i"><use href="#i-camera"/></svg>Chụp lại</button>
               <button class="btn sm" id="changeBtn"><svg class="i"><use href="#i-upload"/></svg>Đổi ảnh</button>
               <button class="btn sm" id="cropBtn" disabled><svg class="i"><use href="#i-crop"/></svg><span>Làm thẳng thẻ</span></button>
               <button class="btn sm" id="resetImgBtn" disabled><svg class="i"><use href="#i-undo"/></svg>Khôi phục</button>
@@ -684,6 +714,28 @@
   </div>
 </div>
 
+<!-- Camera trong ứng dụng: căn danh thiếp vào khung rồi chụp -->
+<div class="cam" id="cam" hidden>
+  <video id="camVideo" playsinline muted autoplay></video>
+  <div class="cam-frame" id="camFrame"><i></i><i></i><i></i><i></i></div>
+  <div class="cam-flash" id="camFlash"></div>
+  <div class="cam-top">
+    <button class="cam-btn" id="camClose" aria-label="Đóng"><svg class="i"><use href="#i-x"/></svg></button>
+    <span class="cam-tip" id="camTip">Đặt danh thiếp vừa khung</span>
+    <button class="cam-btn" id="camTorch" aria-label="Đèn flash" hidden><svg class="i"><use href="#i-flash"/></svg></button>
+    <span class="cam-spacer" id="camTorchSpacer"></span>
+  </div>
+  <div class="cam-error" id="camError" hidden>
+    <p id="camErrorText">Không mở được camera.</p>
+    <button class="btn primary" id="camFallback"><svg class="i"><use href="#i-camera"/></svg>Mở ứng dụng Camera</button>
+  </div>
+  <div class="cam-bottom">
+    <button class="cam-btn" id="camGallery" aria-label="Chọn ảnh từ thư viện"><svg class="i"><use href="#i-image"/></svg></button>
+    <button class="shutter" id="camShot" aria-label="Chụp" disabled></button>
+    <span class="cam-spacer"></span>
+  </div>
+</div>
+
 <div class="toast" id="toast"><svg class="i"><use href="#i-check"/></svg><span id="toastText"></span></div>
 
 <script>
@@ -740,7 +792,7 @@ const imgW = im => im.naturalWidth || im.width, imgH = im => im.naturalHeight ||
 const viewer = $('viewer');
 $('drop').onclick = e => { if(!e.target.closest('button')) $('file').click(); };
 $('pickBtn').onclick = $('changeBtn').onclick = () => $('file').click();
-$('camBtn').onclick = () => $('fileCam').click();
+$('camBtn').onclick = $('recamBtn').onclick = () => openCamera();
 $('file').onchange = $('fileCam').onchange = e => { e.target.files[0] && loadFile(e.target.files[0]); e.target.value = ''; };
 // Chặn trình duyệt tự mở ảnh khi thả lệch ra ngoài vùng kéo thả
 ['dragover','drop'].forEach(ev => window.addEventListener(ev, e => e.preventDefault()));
@@ -887,6 +939,81 @@ function warp(q){
   return out;
 }
 
+/* ============ CAMERA TRONG ỨNG DỤNG ============ */
+// Mở camera sau, người dùng căn danh thiếp vào khung → chụp → cắt đúng vùng khung → tự chạy OCR.
+// getUserMedia cần HTTPS (GitHub Pages) hoặc localhost; nếu không được thì dùng ứng dụng Camera của máy.
+let camStream = null;
+function camError(msg){
+  $('camErrorText').textContent = msg; $('camError').hidden = false;
+  $('camTip').textContent = ''; $('camShot').disabled = true; $('camFrame').hidden = true;
+}
+async function openCamera(){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !window.isSecureContext){
+    return $('fileCam').click();                       // trình duyệt không hỗ trợ → ứng dụng Camera
+  }
+  $('cam').hidden = false; document.body.style.overflow = 'hidden';
+  $('camError').hidden = true; $('camFrame').hidden = false; $('camTorch').hidden = true; $('camTorch').classList.remove('on');
+  $('camShot').disabled = true; $('camTip').textContent = 'Đang mở camera...';
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }
+    });
+    if($('cam').hidden){ stopCamStream(); return; }      // người dùng đã đóng trong lúc chờ quyền
+    const v = $('camVideo'); v.srcObject = camStream; await v.play();
+    $('camTip').textContent = 'Đặt danh thiếp vừa khung'; $('camShot').disabled = false;
+    const track = camStream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if(caps.torch) $('camTorch').hidden = false;
+  }catch(e){
+    stopCamStream();
+    camError(e && e.name === 'NotAllowedError'
+      ? 'Chưa có quyền dùng camera. Hãy cho phép camera cho trang này trong cài đặt trình duyệt, hoặc dùng ứng dụng Camera.'
+      : 'Không mở được camera trên thiết bị này.');
+  }
+}
+function stopCamStream(){
+  if(camStream) camStream.getTracks().forEach(t => t.stop());
+  camStream = null; $('camVideo').srcObject = null;
+}
+function closeCamera(){ stopCamStream(); $('cam').hidden = true; document.body.style.overflow = ''; }
+
+// Cắt đúng vùng khung trên màn hình ra khỏi khung hình video (video hiển thị kiểu object-fit: cover)
+function captureFrame(){
+  const v = $('camVideo'), vw = v.videoWidth, vh = v.videoHeight;
+  if(!vw || !vh) return null;
+  const r = v.getBoundingClientRect(), f = $('camFrame').getBoundingClientRect();
+  const s = Math.max(r.width / vw, r.height / vh);                 // tỉ lệ video → màn hình
+  const ox = r.left + (r.width - vw * s) / 2, oy = r.top + (r.height - vh * s) / 2;
+  const pad = f.width * 0.04;                                      // chừa lề nhỏ để không mất mép thẻ
+  let sx = (f.left - pad - ox) / s, sy = (f.top - pad - oy) / s;
+  let sw = (f.width + 2 * pad) / s, sh = (f.height + 2 * pad) / s;
+  sx = Math.max(0, sx); sy = Math.max(0, sy); sw = Math.min(vw - sx, sw); sh = Math.min(vh - sy, sh);
+  const c = document.createElement('canvas'); c.width = Math.round(sw); c.height = Math.round(sh);
+  c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+$('camShot').onclick = () => {
+  const shot = captureFrame();
+  if(!shot) return;
+  const fl = $('camFlash'); fl.classList.add('go'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('go')));
+  setTimeout(() => {
+    closeCamera(); switchView('scan');
+    setImage(shot); setStep(3);
+    runOcr({ fromCamera: true });
+  }, 120);
+};
+$('camClose').onclick = closeCamera;
+$('camGallery').onclick = () => { closeCamera(); $('file').click(); };
+$('camFallback').onclick = () => { closeCamera(); $('fileCam').click(); };
+$('camTorch').onclick = async () => {
+  const track = camStream && camStream.getVideoTracks()[0]; if(!track) return;
+  const on = !$('camTorch').classList.contains('on');
+  try{ await track.applyConstraints({ advanced: [{ torch: on }] }); $('camTorch').classList.toggle('on', on); }catch(e){}
+};
+// Rời ứng dụng (chuyển app, khóa màn hình) → tắt camera
+document.addEventListener('visibilitychange', () => { if(document.hidden && camStream) closeCamera(); });
+
 /* ============ TIỀN XỬ LÝ ẢNH (tối ưu OCR) ============ */
 function preprocess(){
   if(!currentImage) return;
@@ -963,7 +1090,8 @@ async function getWorker(){
   return worker;
 }
 
-$('ocrBtn').onclick = async () => {
+$('ocrBtn').onclick = () => runOcr();
+async function runOcr(opts = {}){
   if(typeof Tesseract === 'undefined'){
     setEngine('error', 'OCR mất mạng');
     return setStatus('Không tải được OCR — cần kết nối Internet.', undefined, 'err');
@@ -990,12 +1118,17 @@ $('ocrBtn').onclick = async () => {
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     $('rawMeta').textContent = `${best.data.text.trim().split('\n').filter(Boolean).length} dòng · tin cậy ${Math.round(best.data.confidence)}% · PSM ${best.m}`;
     if(found < 2) setStatus('Không đọc được thông tin — hãy dùng “Làm thẳng thẻ” rồi chạy lại.', 1, 'warn');
-    else { setStatus(`Hoàn tất ${secs}s · ${found}/7 trường · tin cậy ${Math.round(best.data.confidence)}%`, 1, 'ok'); setStep(4); }
+    else {
+      setStatus(`Hoàn tất ${secs}s · ${found}/7 trường · tin cậy ${Math.round(best.data.confidence)}%`, 1, 'ok'); setStep(4);
+      // Chụp bằng camera trên điện thoại → cuộn thẳng tới phần thông tin để kiểm tra
+      if(opts.fromCamera && matchMedia('(max-width:700px)').matches)
+        $('f_name').closest('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }catch(err){
     console.error(err);
     setStatus('Lỗi OCR: ' + (err.message || err), undefined, 'err');
   }finally{ $('ocrBtn').disabled = false; }
-};
+}
 const countFields = p => ['name','title','company','phone','email','website','address'].filter(k => p[k]).length;
 $('reparseBtn').onclick = () => { applyParsed(parseCard($('raw').value)); toast('Đã trích xuất lại từ văn bản'); };
 
@@ -1449,7 +1582,11 @@ const closeShare = () => { $('shareModal').hidden = true; };
 $('shareCfgBtn').onclick = openShare;
 $('shareClose').onclick = closeShare;
 $('shareModal').onclick = e => { if(e.target === $('shareModal')) closeShare(); };
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('shareModal').hidden) closeShare(); });
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!$('cam').hidden) closeCamera();
+  else if(!$('shareModal').hidden) closeShare();
+});
 $('copyLinkBtn').onclick = async () => { await copyText($('shareLink').value); toast('Đã sao chép link cài đặt'); };
 $('nativeShareBtn').onclick = () => navigator.share({ title: 'CardScan', url: $('shareLink').value }).catch(() => {});
 

@@ -7,7 +7,8 @@ Công cụ số hóa danh thiếp chạy trên trình duyệt: nhận dạng ký
 ## Tính năng
 
 **Nhận dạng danh thiếp**
-- Chụp ảnh trực tiếp bằng camera điện thoại, chọn ảnh từ máy, kéo thả hoặc dán bằng `Ctrl + V`
+- **Camera trong ứng dụng** (điện thoại): mở camera sau toàn màn hình với khung tỉ lệ danh thiếp — căn thẻ vào khung, bấm chụp, ảnh được cắt theo khung và tự chạy nhận dạng
+- Hoặc chọn ảnh từ máy, kéo thả, dán bằng `Ctrl + V`
 - OCR tiếng Việt và tiếng Anh bằng Tesseract.js, xử lý ngay trên trình duyệt, ảnh không được gửi lên máy chủ
 - **Làm thẳng thẻ**: chọn 4 góc danh thiếp trên ảnh chụp nghiêng, công cụ tự hiệu chỉnh phối cảnh về hình chữ nhật
 - Tiền xử lý ảnh: chuyển xám, tăng tương phản, nhị phân hóa Otsu
@@ -62,8 +63,11 @@ Mở `http://localhost:8765`. Lần đầu sử dụng cần kết nối Interne
 
 ## Hướng dẫn sử dụng
 
+**Trên điện thoại:** bấm **Chụp ảnh** → căn danh thiếp vào khung → bấm nút chụp. Nhận dạng chạy tự động, sau đó chuyển tới bước 4.
+Camera trong ứng dụng cần HTTPS (đã có sẵn trên GitHub Pages) và quyền truy cập camera; nếu không khả dụng, CardScan chuyển sang ứng dụng Camera của máy.
+
 1. **Tải ảnh** — chụp hoặc chọn ảnh danh thiếp. Có thể dùng **Thẻ mẫu** để thử nhanh.
-2. **Làm thẳng thẻ** *(khi ảnh chụp nghiêng hoặc có nền xung quanh)* — chạm lần lượt 4 góc thẻ theo thứ tự trên-trái → trên-phải → dưới-phải → dưới-trái.
+2. **Làm thẳng thẻ** *(khi ảnh chọn từ thư viện bị nghiêng hoặc có nền xung quanh)* — chạm lần lượt 4 góc thẻ theo thứ tự trên-trái → trên-phải → dưới-phải → dưới-trái.
 3. **Chạy nhận dạng** — các trường thông tin được điền tự động.
 4. **Kiểm tra KYC** — rà soát và chỉnh sửa thông tin; kết quả kiểm tra cập nhật ngay khi gõ.
 5. **Lưu hồ sơ** — hồ sơ xuất hiện trong mục *Hồ sơ khách hàng*.
