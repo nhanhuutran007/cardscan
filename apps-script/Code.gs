@@ -36,8 +36,42 @@ const DATE_COLUMNS = ['NgayTao', 'CapNhatLuc'];
 // Các cột chỉ được sửa trong AppSheet, CardScan không ghi đè
 const APPSHEET_ONLY = ['AnhDanhThiep'];
 
+// Mọi lỗi bên trong (thiếu quyền, lỗi Sheets...) đều trả về JSON để CardScan hiển thị rõ nguyên nhân,
+// thay vì trang lỗi HTML của Google (trình duyệt sẽ chỉ báo "không gọi được Apps Script").
+function doGet(e) { return safe_(() => handleGet_(e)); }
+function doPost(e) { return safe_(() => handlePost_(e)); }
+function safe_(fn) {
+  try {
+    return fn();
+  } catch (err) {
+    const msg = String((err && err.message) || err);
+    const hint = /permission|quyền|authoriz/i.test(msg)
+      ? ' — mở Apps Script, chọn hàm kiemTraGemini và bấm Chạy để cấp quyền' : '';
+    return json_({ ok: false, error: 'Lỗi Apps Script: ' + msg + hint });
+  }
+}
+
+/**
+ * Chạy hàm này MỘT LẦN trong trình soạn thảo Apps Script (chọn kiemTraGemini → bấm Chạy):
+ *   - Google hỏi cấp quyền "kết nối với dịch vụ bên ngoài" (cần để gọi Gemini)
+ *   - Kiểm tra GEMINI_API_KEY và model, kết quả xem ở "Nhật ký thực thi"
+ */
+function kiemTraGemini() {
+  const key = prop_('GEMINI_API_KEY');
+  if (!key) throw new Error('Chưa có thuộc tính GEMINI_API_KEY (Cài đặt dự án → Thuộc tính tập lệnh)');
+  const model = prop_('GEMINI_MODEL') || GEMINI_DEFAULT_MODEL;
+  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model),
+    { headers: { 'x-goog-api-key': key }, muteHttpExceptions: true });
+  const data = JSON.parse(res.getContentText() || '{}');
+  if (res.getResponseCode() !== 200) {
+    throw new Error('Gemini báo lỗi: ' + ((data.error && data.error.message) || ('HTTP ' + res.getResponseCode())));
+  }
+  Logger.log('OK — khóa Gemini hợp lệ, model: ' + (data.displayName || data.name));
+  Logger.log('Nhớ triển khai lại: Triển khai → Quản lý các bản triển khai → Chỉnh sửa → Phiên bản mới.');
+}
+
 /** Kiểm tra kết nối: GET .../exec?token=... */
-function doGet(e) {
+function handleGet_(e) {
   const p = (e && e.parameter) || {};
   if (p.token !== TOKEN) return json_({ ok: false, error: 'Sai mã bảo mật' });
   const sheet = getSheet_();
@@ -54,7 +88,7 @@ function doGet(e) {
  * POST { token, records: [...] }                       → đồng bộ hồ sơ
  * POST { token, action: 'ocr', image: <base64>, mime } → nhận dạng danh thiếp bằng Gemini
  */
-function doPost(e) {
+function handlePost_(e) {
   let body;
   try {
     body = JSON.parse(e.postData.contents);

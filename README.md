@@ -127,7 +127,9 @@ CardScan ──POST JSON──▶ Apps Script (ứng dụng web) ──▶ Googl
 2. Trong Apps Script: **Cài đặt dự án** (biểu tượng bánh răng) › **Thuộc tính tập lệnh** › **Thêm thuộc tính tập lệnh**:
    - `GEMINI_API_KEY` = khóa API
    - `GEMINI_MODEL` = tên model *(không bắt buộc — mặc định `gemini-flash-lite-latest`, phản hồi khoảng 2 giây)*
-3. **Triển khai › Quản lý các bản triển khai › Chỉnh sửa › Phiên bản mới** và cấp thêm quyền *kết nối với dịch vụ bên ngoài* khi được hỏi.
+3. Trong trình soạn thảo Apps Script, chọn hàm **`kiemTraGemini`** ở thanh công cụ và bấm **Chạy** → cho phép quyền *kết nối với dịch vụ bên ngoài*. Nhật ký thực thi hiện `OK — khóa Gemini hợp lệ` là đúng.
+   (Bước này bắt buộc: tạo phiên bản triển khai mới không tự hỏi quyền, khi đó CardScan sẽ báo lỗi phân quyền.)
+   Sau đó **Triển khai › Quản lý các bản triển khai › Chỉnh sửa › Phiên bản mới**.
 4. Trong CardScan bấm **Kiểm tra kết nối** — trạng thái hiển thị `· AI` và góc trên hiện **AI Gemini**.
 
 > **Quyền riêng tư:** ở gói miễn phí, Google có thể dùng dữ liệu gửi tới Gemini API để cải thiện sản phẩm. Với dữ liệu khách hàng thật, nên dùng gói trả phí hoặc xác nhận chính sách với đơn vị trước khi bật. Có thể tắt AI bất kỳ lúc nào bằng công tắc *Nhận dạng bằng AI* trong CardScan.
