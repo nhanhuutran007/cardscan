@@ -7,6 +7,7 @@
  *
  * Cài đặt:
  *   1. Mở Google Sheets → Tiện ích mở rộng → Apps Script, dán toàn bộ mã này.
+ *      (Hoặc tạo dự án mới tại script.google.com và điền SPREADSHEET_ID bên dưới.)
  *   2. Đổi TOKEN bên dưới thành mã bí mật của bạn → Lưu.
  *   3. Triển khai → Tùy chọn triển khai mới → Ứng dụng web
  *        Thực thi dưới dạng: Tôi · Người có quyền truy cập: Bất kỳ ai
@@ -15,6 +16,12 @@
 
 const TOKEN = 'doi-ma-bao-mat-nay';   // phải trùng với "Mã bảo mật" nhập trong CardScan
 const SHEET_NAME = 'KhachHang';
+
+// Để trống nếu mở Apps Script từ trong Google Sheets (Tiện ích mở rộng → Apps Script).
+// Nếu tạo dự án riêng tại script.google.com: dán ID trang tính, là đoạn giữa /d/ và /edit
+// trong đường dẫn: https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
+const SPREADSHEET_ID = '';
+const spreadsheet_ = () => SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 
 const COLUMNS = ['ID', 'HoTen', 'ChucDanh', 'CongTy', 'SoDienThoai', 'Email', 'Website',
                  'DiaChi', 'GhiChu', 'TrangThaiKYC', 'NgayTao', 'CapNhatLuc', 'AnhDanhThiep'];
@@ -29,7 +36,7 @@ function doGet(e) {
   const sheet = getSheet_();
   return json_({
     ok: true,
-    spreadsheet: SpreadsheetApp.getActiveSpreadsheet().getName(),
+    spreadsheet: spreadsheet_().getName(),
     sheet: SHEET_NAME,
     rows: Math.max(0, sheet.getLastRow() - 1)
   });
@@ -88,7 +95,7 @@ function doPost(e) {
 
 /** Lấy (hoặc tạo) trang tính, đảm bảo đủ cột và định dạng */
 function getSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = spreadsheet_();
   const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
   if (sheet.getLastRow() === 0) {

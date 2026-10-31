@@ -111,7 +111,20 @@ CardScan ──POST JSON──▶ Apps Script (ứng dụng web) ──▶ Googl
 - Trang tính `KhachHang` được tạo tự động; cột số điện thoại để dạng văn bản nên giữ nguyên số 0 đầu.
 - Xóa hồ sơ trong CardScan không xóa dòng tương ứng trên Google Sheets.
 
-### 3. Tạo ứng dụng AppSheet
+### 3. Cài đặt cho nhân viên
+
+Người quản trị cấu hình một lần, sau đó phát link cho mọi người — nhân viên không cần nhập URL hay mã bảo mật.
+
+1. Trong **Tích hợp AppSheet**, sau khi kiểm tra kết nối thành công, bấm **Link cài đặt**.
+2. Gửi **mã QR** hoặc **link** vào nhóm nội bộ.
+3. Nhân viên quét QR / mở link → CardScan tự lưu cấu hình và kiểm tra kết nối.
+   Trên iPhone, sau khi mở link, chọn **Chia sẻ › Thêm vào Màn hình chính** ngay trên trang đó để dùng như ứng dụng.
+
+Cấu hình nằm sau dấu `#` của link nên không được gửi lên máy chủ và không có trong mã nguồn. Chỉ chia sẻ link trong nội bộ.
+
+**Đổi mã bảo mật** (ví dụ khi có người nghỉ việc): tạo mã mới → cập nhật `TOKEN` trong Apps Script và triển khai phiên bản mới → bấm **Lưu** trong CardScan → gửi link cài đặt mới. Link cũ sẽ không còn ghi được dữ liệu.
+
+### 4. Tạo ứng dụng AppSheet
 
 1. Sau lần đồng bộ đầu tiên, trong Google Sheets chọn **Tiện ích mở rộng › AppSheet › Tạo ứng dụng**.
 2. Cấu hình cột (**Data › KhachHang**):
